@@ -65,7 +65,7 @@ gops run start
 
 | 文件 | 内容 |
 |---|---|
-| `sys/configs/evidence/evidence.toml` | sink 监听 / 允许的 kind / 索引库 / 对象存储 |
+| `sys/configs/evidence/wist-evidence.toml` | sink 监听 / 允许的 kind / 索引库 / 对象存储 |
 | `sys/configs/console/console.toml` | 入口身份、到证据服务的租户与敏感度、atlas 探活地址 |
 | `sys/.wist/sec-value.yml` | `${SEC_...}` 的真值（DB URL、sink token、COS 凭据），**不入库** |
 
@@ -73,7 +73,7 @@ gops run start
   明文不落配置文件；
 - 两处 `tenant`（evidence 的 sink 声明与 console 的读身份）必须一致；
 - **`objects.kind = "memory"` 是默认值，重启即丢**：生产必须切到 COS（`s3`），
-  见 `sys/configs/evidence/evidence.toml` 里的注释块。
+  见 `sys/configs/evidence/wist-evidence.toml` 里的注释块。
 
 ## 与其它栈的关系
 
