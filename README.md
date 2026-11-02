@@ -89,3 +89,19 @@ gops run start
 # 然后把 .env 里的五个 tag 改成 dev
 docker compose -f sys/docker-compose.yml --env-file .env up -d
 ```
+
+## 容器用户与挂载权限
+
+`evidence` / `console` 镜像以 **10001:10001** 运行（非 root）。挂进来的文件要让这个 uid 可读：
+
+```bash
+# 配置（不含密钥）保持 0644 即可
+chmod 0644 sys/configs/evidence/*.toml sys/configs/console/*.toml
+
+# 密钥：0640，属主/属组给 10001（需要 sudo）
+sudo chown 10001:10001 sys/.wist/sec-value.yml
+chmod 0640 sys/.wist/sec-value.yml
+```
+
+容器内的健康检查用**静态** busybox（`busybox:stable-musl`）：`busybox:stable` 现在要求
+glibc 2.38，而镜像基础是 bookworm（2.36），会直接报 `GLIBC_2.38 not found`。
