@@ -1,0 +1,20 @@
+test_envs:
+  dep_root: ''
+  deps: []
+
+# 现场态：不进交付包、升级/重建时不覆盖。
+ignore:
+  - .wist
+  - .env
+  - sys/.wist
+  - sys/merged_vars.yml
+  - sys/resolved_vars.yml
+  - values
+
+protect:
+  - .wist
+  - .env
+  - sys/.wist
+  - sys/merged_vars.yml
+  - sys/resolved_vars.yml
+  - values

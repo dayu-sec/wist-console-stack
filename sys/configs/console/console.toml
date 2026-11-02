@@ -1,0 +1,24 @@
+# console BFF 配置 —— 计算区 stack 口径
+#
+# 浏览器只跟 BFF 说话；到证据服务的租户 / scope / 敏感度只在这里。
+
+[server]
+listen_addr = "0.0.0.0:8080"
+
+[auth]
+# ingress：入口（VPN / 堡垒机 / 反代）必须注入操作者头。
+# dev 只用于本机联调，**不要**在共享网络上用。
+mode = "ingress"
+operator_header = "x-console-operator"
+
+# 身份：必须与 `configs/evidence/evidence.toml` 的 sink 租户一致。
+[evidence]
+base_url = "http://evidence:8443"
+tenant = "t-001"
+scopes = ["evidence:read"]
+max_sensitivity = "paths"
+timeout_secs = 10
+
+# 资产拓扑：只用于 `/api/health` 探活；页面本体由 atlas-web 嵌在 `/atlas/`。
+[atlas]
+base_url = "http://atlas:8080"

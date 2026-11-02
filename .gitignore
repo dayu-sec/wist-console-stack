@@ -1,0 +1,14 @@
+# gops 生成物 / 现场态
+.env
+.wist/
+sys/.wist/
+values/
+sys/merged_vars.yml
+sys/resolved_vars.yml
+deliver.lock
+
+# macOS
+.DS_Store
+
+# 迁移（gops >= 1.4）：模块按目标模型分组
+sys/*/mods
