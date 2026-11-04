@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.13 · 2026-11-04
+
+- console `v0.1.8-alpha`：代理读正文的响应补 `cache-control: no-store` 与
+  `x-content-type-options: nosniff`（证据正文不进浏览器 / 中间代理缓存）。
+- 说明：该镜像的 CI Release 卡在 GitHub macOS arm64 runner 容量
+  （`job was not acquired by Runner of type hosted`），本次是用同一提交的 CI 产物
+  在本地构建出的同名镜像；runner 恢复后以 CI 产物为准（同一提交，内容一致）。
+
 ## 0.1.12 · 2026-11-04
 
 - 「打开正文」在本地文件存储下也能用了：evidence `v0.1.10-alpha` 新增
