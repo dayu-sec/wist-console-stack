@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.3 · 2026-11-02
+
+- 跟进上游改名：「采集量」→**运行指标**（console `v0.1.3-alpha` 的 health 键 `metrics`、
+  console-web `v0.1.1-alpha` 的路由 `#/metrics`）。
+
 ## 0.1.2 · 2026-11-02
 
 - 修 gops 下的运行态路径：`gops` 用**栈根**作为 compose 的 project directory，
