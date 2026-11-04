@@ -108,9 +108,29 @@ curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
 
 - 证据服务的 sink token 以 `${SEC_EVIDENCE_SINK_TOKEN}` 作**键**（`wist-evidence v0.1.5+`），
   明文不落配置文件；
-- 两处 `tenant`（evidence 的 sink 声明与 console 的读身份）必须一致；
-- **`objects.kind = "memory"` 是默认值，重启即丢**：生产必须切到 COS（`s3`），
-  见 `sys/configs/evidence/wist-evidence.toml` 里的注释块。
+- 两处 `tenant`（evidence 的 sink 声明与 console 的读身份）必须一致。
+
+### 证据正文存在哪（两种模式）
+
+| `objects.kind` | 用在哪 | 位置 | 预签名 |
+|---|---|---|---|
+| `file`（本栈默认） | 测试 / 现场验证 | 宿主 `./data/evidence-objects/`（容器内 `/var/lib/wist-evidence/objects`） | ❌ 回 501 |
+| `s3` | 生产 | 腾讯 COS / MinIO | ✅ 60s 单对象 |
+
+本地模式的文件就是对象键：`<租户>/<kind>/<年>/<月>/<artifact_id>.json.zst`，
+旁边 `.meta.json` 是写入时的自描述元数据。正文是 zstd 压缩的，直接看：
+
+```bash
+find data/evidence-objects -name '*.json.zst' | head
+zstd -dc data/evidence-objects/t-001/investigation_report/2026/11/*.json.zst | jq .
+```
+
+注意两点：
+
+- `data/evidence-objects` 由 `sys/scripts/init-stack.sh` 建好并给到 0777（容器内是 uid 10001）；
+  **不跑 init 脚本**时 compose 会自己建一个 `root:root` 的目录，证据服务写不进去。
+- 本地文件模式**不签发预签名 URL**，所以页面上的「打开正文」会回 `501 evidence_presign_unsupported`；
+  要在线看正文就切 `s3`。
 
 ## 与其它栈的关系
 

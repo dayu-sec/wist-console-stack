@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.1.11 · 2026-11-04
+
+- 证据正文改成**两种落点**（`wist-evidence v0.1.7-alpha`）：
+  - 默认 `objects.kind = "file"`：宿主 `./data/evidence-objects/`，重启不丢，
+    可直接 `find` / `zstd -dc` 看（测试与现场核对用）；
+  - 生产切 `objects.kind = "s3"`（腾讯 COS / MinIO），支持 60s 短签名 URL。
+- `init-stack.sh` 建好 `data/evidence-objects` 并给到 0777（容器内 uid 10001）；
+  不先建目录的话 compose 会建一个 `root:root` 的，证据服务写不进去。
+- **已知差异**：本地文件模式不签发预签名 URL，页面「打开正文」会回
+  `501 evidence_presign_unsupported`（要看正文直接读文件，或切 s3）。
+
 ## 0.1.10 · 2026-11-04
 
 - console-web `v0.1.7-alpha`：「接口可用性」页删除「怎么读这张表」一节。

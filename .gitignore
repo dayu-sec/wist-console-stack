@@ -15,3 +15,6 @@ sys/*/mods
 
 # gops 栈根运行态（init-stack.sh 从 sys/configs 复制）
 /configs/
+
+# 证据正文（objects.kind = file 的落点）
+/data/

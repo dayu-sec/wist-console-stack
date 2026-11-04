@@ -28,7 +28,12 @@ copy_missing() {
 
 # 1) 运行态目录（栈根）
 mkdir -p "${STACK_ROOT}/configs/evidence" "${STACK_ROOT}/configs/console" "${STACK_ROOT}/.wist"
-note "runtime dirs: ${STACK_ROOT}/configs, ${STACK_ROOT}/.wist"
+# 证据正文（`objects.kind = file`）：宿主上可直接看。容器内是 uid 10001，
+# 而部署账号不是 10001，所以这里给到 0777（仅开发/测试栈；生产用 COS）。
+# 必须先建：否则 compose 会自己建一个 root:root 的目录，容器写不进去。
+mkdir -p "${STACK_ROOT}/data/evidence-objects"
+chmod 0777 "${STACK_ROOT}/data/evidence-objects"
+note "runtime dirs: ${STACK_ROOT}/configs, ${STACK_ROOT}/.wist, ${STACK_ROOT}/data/evidence-objects"
 
 # 2) 种子 -> 运行态（只补缺）
 copy_missing "${STACK_ROOT}/sys/configs/evidence" "${STACK_ROOT}/configs/evidence"
