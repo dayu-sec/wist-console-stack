@@ -126,6 +126,28 @@ curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
 docker compose -f sys/docker-compose.yml --env-file .env up -d
 ```
 
+## 给 WarpParse 的写入配置（可直接 copy）
+
+证据库的写端点是 `POST /internal/evidence`，认证用 **Basic：username = 站点 token**
+（wparse 的 http 连接器只有 `username` / `password` 两个稳定字段）。
+
+现成的两份配置在 [`examples/warp-parse/`](examples/warp-parse/)：
+
+```text
+examples/warp-parse/connectors/sink.d/30-evidence_sink.toml
+examples/warp-parse/topology/sinks/business.d/agent_ivsrep_evidence.toml
+```
+
+拷进 wparse 工作根，配两个环境变量即可：
+
+```bash
+EVIDENCE_SINK_URL=http://<证据服务内网地址>:18800     # EVIDENCE_SINK_BIND_IP / PORT
+EVIDENCE_SINK_TOKEN=<与 sys/.wist/sec-value.yml 里的 SEC_EVIDENCE_SINK_TOKEN 一致>
+```
+
+前提：平台侧 ingest 要先加载 `agent_uplink_ivsrep` 的 WPL/OML（这套规则目前只在网关栈里）。
+详见 [`examples/warp-parse/README.md`](examples/warp-parse/README.md)。
+
 ## 容器用户与挂载权限
 
 `evidence` / `console` 镜像以 **10001:10001** 运行（非 root）。挂进来的文件要让这个 uid 可读：

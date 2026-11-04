@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.5 · 2026-11-02
+
+- 新增 [`examples/warp-parse/`](examples/warp-parse/)：可**直接 copy** 的连接器 + sink 分组，
+  配 `EVIDENCE_SINK_URL` / `EVIDENCE_SINK_TOKEN` 即可把 `IVSREP` 写进证据库。
+- 证据服务升到 `v0.1.6-alpha`（写端点支持 Basic：`username` = 站点 token）。
+
 ## 0.1.4 · 2026-11-02
 
 - 跟进展示名「**星象台 · 证据与观测**」（console-web `v0.1.2-alpha`）；

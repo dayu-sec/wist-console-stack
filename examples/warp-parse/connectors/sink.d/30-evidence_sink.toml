@@ -1,0 +1,36 @@
+# WarpParse → 证据库（wist-evidence）写入连接器
+#
+# 放到 wparse 工作根的 `connectors/sink.d/` 下（建议编号 30-，排在通用 http 模板之后）。
+#
+# 目标：POST ${EVIDENCE_SINK_URL}/internal/evidence
+# 认证：**Basic**，`username` = 站点 token（证据服务把 username 当 token，password 留空）。
+#       不用自定义 header 的原因：连接器的 `username` / `password` 是稳定字段，
+#       而 header 值里的 `${VAR}` 扩展没有在真机验证过。
+# 传输：明文 HTTP（wparse 的 http 连接器没有 TLS 参数），因此这个端点只在**内网**开放。
+[[connectors]]
+allow_override = [
+  "endpoint",
+  "username",
+  "password",
+  "headers",
+  "fmt",
+  "batch_size",
+  "timeout_secs",
+  "max_retries",
+]
+id = "evidence_sink"
+type = "http"
+
+[connectors.params]
+endpoint = "${EVIDENCE_SINK_URL}/internal/evidence"
+method = "POST"
+fmt = "json"
+batch_size = 1
+timeout_secs = 5
+max_retries = 3
+compression = "none"
+username = "${EVIDENCE_SINK_TOKEN}"
+password = ""
+
+[connectors.params.headers]
+Content-Type = "application/json"
