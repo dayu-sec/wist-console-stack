@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.1.10 · 2026-11-04
+
+- console-web `v0.1.7-alpha`：「接口可用性」页删除「怎么读这张表」一节。
+
 ## 0.1.9 · 2026-11-04
 
 - console `v0.1.6-alpha`、console-web `v0.1.6-alpha`：星象台新增「**接口可用性**」页（`#/health`）——
