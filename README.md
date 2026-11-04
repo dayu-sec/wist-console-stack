@@ -68,6 +68,35 @@ gops run start
 
 现场覆盖值写 ops-prj 的 `values/wist-console-stack/sys_value.yml`，不要改 `sys/setting/vars.yml`。
 
+## 本机访问
+
+浏览器入口：**<http://127.0.0.1:8088/>**（`WEB_BIND_IP` / `WEB_HOST_PORT` 可改）。
+
+默认 `console` 是 `ingress` 模式：入口必须注入 `x-console-operator`，所以浏览器直接打开时
+`/api/*` 会回 401（页面框架能出来，但会提示 BFF 不可用）。本机调试把**运行态**配置切成 dev
+（`sys/configs` 里的种子保持 `ingress`，不影响交付默认值）：
+
+```bash
+sed -i '' 's/^mode = "ingress"$/mode = "dev"/' configs/console/console.toml
+docker restart wist-console-stack-console
+```
+
+不想改配置，也可以继续用带头的 curl：
+
+```bash
+curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
+```
+
+页面：
+
+| 路由 | 内容 |
+|---|---|
+| `#/overview` | 四域就绪度（证据 / 拓扑 / 采集量 / 设备） |
+| `#/evidence` | 证据列表（按主机、类型筛） |
+| `#/evidence/{artifact_id}` | 元数据 + 「打开正文（60s）」 |
+| `#/topology` | 资产拓扑（同源嵌入 atlas-web） |
+| `#/pipeline`、`#/devices` | 占位（写明缺什么） |
+
 ## 密钥与配置
 
 | 文件 | 内容 |
