@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.1.12 · 2026-11-04
+
+- 「打开正文」在本地文件存储下也能用了：evidence `v0.1.10-alpha` 新增
+  `GET /internal/evidence/{id}/content`（代理读正文），console `v0.1.7-alpha` 把它接到
+  `/api/evidence/{id}/content`，console-web `v0.1.8-alpha` 在预签名不可用时自动降级到这条路。
+- evidence `v0.1.10-alpha` 另外：索引有、对象没了回 502（不是 404）；5xx 不回显后端路径。
+
 ## 0.1.11 · 2026-11-04
 
 - 证据正文改成**两种落点**（`wist-evidence v0.1.7-alpha`）：

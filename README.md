@@ -129,8 +129,9 @@ zstd -dc data/evidence-objects/t-001/investigation_report/2026/11/*.json.zst | j
 
 - `data/evidence-objects` 由 `sys/scripts/init-stack.sh` 建好并给到 0777（容器内是 uid 10001）；
   **不跑 init 脚本**时 compose 会自己建一个 `root:root` 的目录，证据服务写不进去。
-- 本地文件模式**不签发预签名 URL**，所以页面上的「打开正文」会回 `501 evidence_presign_unsupported`；
-  要在线看正文就切 `s3`。
+- 本地文件模式**不签发预签名 URL**（`:presign` 回 `501 evidence_presign_unsupported`），
+  页面会自动改走 BFF 代理读（`GET /api/evidence/{id}/content`），所以「打开正文」照旧可用；
+  要签名 URL（例如让外部消费者直连桶）才需要切 `s3`。
 
 ## 与其它栈的关系
 
