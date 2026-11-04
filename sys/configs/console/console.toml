@@ -22,3 +22,8 @@ timeout_secs = 10
 # 资产拓扑：只用于 `/api/health` 探活；页面本体由 atlas-web 嵌在 `/atlas/`。
 [atlas]
 base_url = "http://atlas:8080"
+
+# 展示在「数据面接入」页的写端点（**数据面视角**的地址，不是容器内地址）。
+# 现场改成 EVIDENCE_SINK_BIND_IP 对应的内网地址 + 端口。
+[integration]
+sink_url = "http://127.0.0.1:18800"

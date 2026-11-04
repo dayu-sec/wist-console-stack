@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.6 · 2026-11-02
+
+- 星象台新增「数据面接入」页（`#/ingest`）：写端点 / 认证 / 允许的 kind，
+  以及连接器、sink 分组、环境变量三段可一键复制的配置（由 BFF `GET /api/integration` 生成）。
+- console `v0.1.4-alpha`、console-web `v0.1.3-alpha`；`sys/configs/console` 增加 `[integration] sink_url`。
+
 ## 0.1.5 · 2026-11-02
 
 - 新增 [`examples/warp-parse/`](examples/warp-parse/)：可**直接 copy** 的连接器 + sink 分组，
