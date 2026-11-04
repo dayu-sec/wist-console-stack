@@ -69,7 +69,7 @@ gops run start
 | `sys/configs/console/console.toml` | 入口身份、到证据服务的租户与敏感度、atlas 探活地址 |
 | `sys/.wist/sec-value.yml` | `${SEC_...}` 的真值（DB URL、sink token、COS 凭据），**不入库** |
 
-- 证据服务的 sink token 以 `${SEC_EVIDENCE_SINK_TOKEN}` 作**键**（`wist-evidence v0.1.3+`），
+- 证据服务的 sink token 以 `${SEC_EVIDENCE_SINK_TOKEN}` 作**键**（`wist-evidence v0.1.5+`），
   明文不落配置文件；
 - 两处 `tenant`（evidence 的 sink 声明与 console 的读身份）必须一致；
 - **`objects.kind = "memory"` 是默认值，重启即丢**：生产必须切到 COS（`s3`），
