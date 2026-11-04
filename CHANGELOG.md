@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.1.8 · 2026-11-04
+
+- console `v0.1.5-alpha`、console-web `v0.1.5-alpha`：星象台概览页新增「接口可用性」——
+  证据读端点 / 证据写端点 / 资产拓扑 API 逐条探活，带状态、延迟、最近检查时间。
+- `sys/configs/console` 增加 `integration.sink_health_url = "http://evidence:8080/healthz"`：
+  写端点（数据面视角的 `sink_url`）BFF 到不了，探活另走容器网络里的写监听（8080）。
+
 ## 0.1.7 · 2026-11-02
 
 - console-web `v0.1.4-alpha`：修「数据面接入」页版式（codeblock 结构）、四个页面与页头对齐、

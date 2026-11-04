@@ -27,3 +27,6 @@ base_url = "http://atlas:8080"
 # 现场改成 EVIDENCE_SINK_BIND_IP 对应的内网地址 + 端口。
 [integration]
 sink_url = "http://127.0.0.1:18800"
+# 上面那个地址 BFF 到不了，所以写端点的**探活**另给一条 BFF 视角的地址：
+# 证据写监听在容器内 8080，与读监听（8443）分开。
+sink_health_url = "http://evidence:8080/healthz"
