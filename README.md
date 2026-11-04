@@ -91,10 +91,11 @@ curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
 
 | 路由 | 内容 |
 |---|---|
-| `#/overview` | 四域就绪度 + **接口可用性**（逐条探活：读端点 / 写端点 / atlas，带延迟与最近检查） |
+| `#/overview` | 四域就绪度 + 接口可用性摘要 |
 | `#/evidence` | 证据列表（按主机、类型筛） |
 | `#/evidence/{artifact_id}` | 元数据 + 「打开正文（60s）」 |
 | `#/topology` | 资产拓扑（同源嵌入 atlas-web） |
+| `#/health` | **接口可用性**：逐条探活 + 延迟 + 本次会话可用率，可手动立即检查 |
 | `#/pipeline`、`#/devices` | 占位（写明缺什么） |
 
 ## 密钥与配置
