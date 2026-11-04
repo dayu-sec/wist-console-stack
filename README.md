@@ -37,10 +37,13 @@ SEC_EVIDENCE_SINK_TOKEN: tok_dev_replace_me
 YAML
 chmod 0640 sys/.wist/sec-value.yml
 
-# 2) 起
-docker compose -f sys/docker-compose.yml --env-file .env up -d
+# 2) 运行态备料（gops 用栈根作为 project directory；sys/configs 只是种子）
+bash sys/scripts/init-stack.sh
 
-# 3) 入口（默认只绑回环）
+# 3) 起（手动 compose 要显式指定 --project-directory .，与 gops 行为一致）
+docker compose --project-directory . -f sys/docker-compose.yml --env-file .env up -d
+
+# 4) 入口（默认只绑回环）
 #    http://127.0.0.1:8088/
 ```
 
@@ -56,8 +59,12 @@ curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
 ```bash
 gops sys update      # sys/setting/vars.yml -> sys/merged_vars.yml
 gops sys localize    # 生成栈根 .env
+bash sys/scripts/init-stack.sh   # 种子 -> 栈根 configs/ 与 .wist/
 gops run start
 ```
+
+> `gops` 用**栈根**当 compose 的 project directory，所以 `./configs`、`./.wist` 都在栈根；
+> `sys/configs/` 只是种子。手动 `docker compose` 时也要带 `--project-directory .`，否则挂载会指错。
 
 现场覆盖值写 ops-prj 的 `values/wist-console-stack/sys_value.yml`，不要改 `sys/setting/vars.yml`。
 
@@ -65,7 +72,7 @@ gops run start
 
 | 文件 | 内容 |
 |---|---|
-| `sys/configs/evidence/wist-evidence.toml` | sink 监听 / 允许的 kind / 索引库 / 对象存储 |
+| `sys/configs/evidence/wist-evidence.toml` | 种子：sink 监听 / 允许的 kind / 索引库 / 对象存储（运行态在 `configs/evidence/`） |
 | `sys/configs/console/console.toml` | 入口身份、到证据服务的租户与敏感度、atlas 探活地址 |
 | `sys/.wist/sec-value.yml` | `${SEC_...}` 的真值（DB URL、sink token、COS 凭据），**不入库** |
 

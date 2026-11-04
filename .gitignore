@@ -12,3 +12,6 @@ deliver.lock
 
 # 迁移（gops >= 1.4）：模块按目标模型分组
 sys/*/mods
+
+# gops 栈根运行态（init-stack.sh 从 sys/configs 复制）
+/configs/

@@ -56,10 +56,16 @@ system:
     value: wist_evidence
   - name: EVIDENCE_PG_USER
     value: evidence
+  # 口令只用于本地；现场通过 ops-prj 的 values/ 覆盖（可写 `${SEC_EVIDENCE_PG_PASSWORD}`）。
+  # **必须进 vars.yml**：否则 `gops sys localize` 生成的 .env 里没有它，compose 会拿到空串。
+  - name: EVIDENCE_PG_PASSWORD
+    value: evidence-dev-only
   - name: ATLAS_PG_DB
     value: wist_atlas
   - name: ATLAS_PG_USER
     value: atlas
+  - name: ATLAS_PG_PASSWORD
+    value: atlas-dev-only
 
   - name: TZ
     value: Asia/Shanghai

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.2 · 2026-11-02
+
+- 修 gops 下的运行态路径：`gops` 用**栈根**作为 compose 的 project directory，
+  所以 `./configs` / `./.wist` 在栈根；新增 `sys/scripts/init-stack.sh` 把 `sys/configs` 种子复制过去（只补缺）。
+- `EVIDENCE_PG_PASSWORD` / `ATLAS_PG_PASSWORD` 进 `sys/setting/vars.yml`：
+  不进 vars 的话 `gops sys localize` 生成的 `.env` 会丢它们，容器会拿到空串。
+- README 补充：手动 `docker compose` 也要带 `--project-directory .`，否则挂载指错。
+
 ## 0.1.1 · 2026-11-02
 
 - 镜像 tag 跟进上游：`wist-evidence v0.1.5-alpha`（原生编译 + 镜像只打包）、
