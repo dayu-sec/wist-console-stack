@@ -19,7 +19,7 @@ operator_header = "x-console-operator"
 # `cred.toml` 由接入命令写入（identity + verify 两段），**不要手改、也不要抄到这里**：
 #   curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/console/cred'
 # 材料随 `sys/` 一起进镜像/卷，相对路径按 cred.toml 所在目录解。
-file = "/etc/wist-console/cred/cred.toml"
+file = "/cred/cred.toml"
 # cred 推送摘要的 mTLS 监听（容器内固定；宿主端口由编排决定）。
 listen_addr = "0.0.0.0:3103"
 # 摘要表（**只存 sha256**）：验证侧私有状态，不进 PG、不备份。

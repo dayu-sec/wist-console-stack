@@ -174,7 +174,9 @@ services:
       - ./configs/console:/etc/wist-console:ro
       - ./.wist:/sec:ro
       # cred 接入材料（cred.toml + 服务器证书/私钥 + CA-I）：由接入命令写入，只读挂载。
-      - ./identity/console:/etc/wist-console/cred:ro
+      # 注意：挂到 `/etc/wist-console/cred`（只读配置挂载的子目录）会让 docker 在只读层里
+      # 建挂载点而失败（`mkdirat ... Read-only file system`）。所以另起一个顶层路径。
+      - ./identity/console/cred:/cred:ro
       # 摘要表（只存 sha256）：验证侧私有状态，重启不丢、不进 PG。
       - ./data/console:/var/lib/wist-console
     healthcheck:

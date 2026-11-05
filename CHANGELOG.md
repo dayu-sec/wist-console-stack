@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.1.19 · 2026-11-05
+
+- 修 0.1.18 的两个装不起来的问题：
+  1. 凭据材料原来挂到 `/etc/wist-console/cred`（只读配置挂载的**子目录**），docker 在只读层里
+     建挂载点会失败（`mkdirat ... Read-only file system`）→ 改挂顶层 `/cred`，
+     `credentials.file = "/cred/cred.toml"`；
+  2. `identity/console/cred` 目录缺失时同样起不来 → `init-stack.sh` 先建好。
+- `server.key` 由接入命令写成 0600，而容器以 **uid 10001** 读它：`init-stack.sh` 不再擅自
+  chmod，改为提示跑 `gops sys perms --apply`（Linux）。
+
 ## 0.1.18 · 2026-11-05
 
 - **资产拓扑的数据面收进 BFF**：`/atlas/api/*` 不再由 nginx 直连 atlas-web，而是

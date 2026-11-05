@@ -58,10 +58,12 @@ fi
 # 4) 凭据接入材料：没有它 console **起不来**（`auth.mode = cred` 是 fail-closed）。
 #    目录必须先存在：compose 把它只读挂到 `/etc/wist-console/cred`，源目录缺失时
 #    docker 会尝试在只读的 /etc/wist-console 里建挂载点，container 直接起不来。
-mkdir -p "${STACK_ROOT}/identity/console"
+mkdir -p "${STACK_ROOT}/identity/console/cred"
 if [ -f "${STACK_ROOT}/identity/console/cred/cred.toml" ]; then
-  chmod 0600 "${STACK_ROOT}/identity/console/cred/server.key" 2>/dev/null || true
+  # 容器以 uid 10001 读这份材料（server.key 由接入命令写成 0600），
+  # 所以**必须**对齐属主/权限：Linux 上跑 `gops sys perms --apply`。
   note "cred materials: ${STACK_ROOT}/identity/console/cred"
+  note "  → 记得跑 \`gops sys perms --apply\`（容器以 uid 10001 读 server.key）"
 else
   note "⚠ 缺少 ${STACK_ROOT}/identity/console/cred/cred.toml —— console 会拒启。"
   note "  先在 cred 页面建「认证系统」wist-console，再在本机执行接入命令："
