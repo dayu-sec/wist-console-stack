@@ -2,12 +2,14 @@
 #
 # 放到 wparse 工作根的 `topology/sinks/business.d/` 下。
 #
-# 连接器（`connectors/sink.d/30-evidence_sink.toml`）只负责 POST，**不做字段映射**，
-# 所以发出去的记录形状 = 这里 `oml` 指向的模型的输出。证据服务要的是三字段：
+# **不新建 connector**：直接复用现成的 `http_sink`
+# （`connectors/sink.d/12-http_sink.toml`，随 wp-infra 一起发布），
+# 实例侧只覆盖 `allow_override` 里的 endpoint / fmt / headers。
+# 连接器只负责 POST、**不做字段映射**，所以发出去的记录形状 = 这里 `oml` 指向的模型的输出。
+# 证据服务要的是三字段：
 #
 #   {"cust_id": "c-001", "cmd_id": "cmd-...", "content": <任意 JSON / JSON 字符串>}
 #
-# 因此 OML 的输出必须是这三个字段（`content` 可以是 `body` 原样搬过来）。
 # `cust_id` 的来源取决于部署形态：
 #   - 一个 wparse 实例只服务一个客户 → OML 里写常量；
 #   - 多客户混在同一条流里 → 用解析出来的租户/客户字段，或按 source 分流成多个 sink_group。
@@ -21,9 +23,14 @@ batch_timeout_ms = 300
 
 [[sink_group.sinks]]
 name = "evidence"
-connect = "evidence_sink"
+connect = "http_sink"
 tags = ["sink:evidence"]
 
 [sink_group.sinks.params]
 endpoint = "${EVIDENCE_SINK_URL}/internal/evidence"
+fmt = "json"
 batch_size = 1
+timeout_secs = 5
+
+[sink_group.sinks.params.headers]
+Content-Type = "application/json"

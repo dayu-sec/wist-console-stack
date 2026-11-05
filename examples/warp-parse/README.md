@@ -1,14 +1,16 @@
 # WarpParse → 计算区（证据 / 资产 / 指标）：可直接 copy 的配置
 
-五个文件，拷进 wparse 工作根即可：
+三个文件，拷进 wparse 工作根即可：
 
 ```text
-connectors/sink.d/30-evidence_sink.toml          # 证据：怎么连（不做字段映射）
-connectors/sink.d/40-atlas_sink.toml             # 资产拓扑：同上
 topology/sinks/business.d/evidence_uplink.toml   # 证据 sink 分组：哪条 OML 走证据库
 topology/sinks/business.d/atlas_uplink.toml      # 资产 sink 分组
 topology/sinks/infra.d/metrics_uplink.toml       # 运行指标 → VictoriaMetrics
 ```
+
+**不新建 connector**：证据和资产拓扑都直接复用现成的 `http_sink`
+（`connectors/sink.d/12-http_sink.toml`，随 wp-infra 一起发布），
+sink 实例里只覆盖 `endpoint` / `fmt` / `headers` 等 `allow_override` 参数。
 
 > 证据是三字段（`cust_id` / `cmd_id` / `content`），**资产拓扑是两字段**（`cust_id` / `content`）：
 > `cmd_id` 是证据的幂等键，atlas 的幂等键在快照自己的 `snap_id` 里。两边都不校验身份。
@@ -32,6 +34,9 @@ WIST_METRICS_ENDPOINT=http://<console-stack 内网地址>:18428
 
 ## 2. 前提检查
 
+- **连接器用现成的 `http_sink`**：不要为证据 / atlas 再写 `[[connectors]]`。
+  先确认工作根的 `connectors/sink.d/` 里有 `http_sink`（`12-http_sink.toml`）；
+  没有就从 wp-infra 拷一份。
 - **OML 必须输出契约字段**：证据是 `cust_id` / `cmd_id` / `content`，atlas 是 `cust_id` / `content`。
   连接器不做字段映射，发出去的就是 OML 的输出。
   `cust_id` 的来源看你：一个实例一个客户 → 常量；多客户混流 → 用解析出的客户字段，

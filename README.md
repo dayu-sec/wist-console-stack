@@ -281,7 +281,7 @@ docker compose -f sys/docker-compose.yml --env-file .env up -d
 
 ## 给 WarpParse 的写入配置（可直接 copy）
 
-三个端点和两份配置，都在 [`examples/warp-parse/`](examples/warp-parse/)（详见那里的 README）。
+三个端点和三份配置，都在 [`examples/warp-parse/`](examples/warp-parse/)（详见那里的 README）。
 
 | 目标 | 端点 | 契约 |
 |---|---|---|
@@ -290,12 +290,13 @@ docker compose -f sys/docker-compose.yml --env-file .env up -d
 | 运行指标 | `victoriametrics_sink` → `/api/v1/*` | wparse 自带的 VM sink，不是三字段 |
 
 ```text
-examples/warp-parse/connectors/sink.d/30-evidence_sink.toml
-connectors/sink.d/40-atlas_sink.toml
-topology/sinks/business.d/evidence_uplink.toml
+examples/warp-parse/topology/sinks/business.d/evidence_uplink.toml
 topology/sinks/business.d/atlas_uplink.toml
 topology/sinks/infra.d/metrics_uplink.toml
 ```
+
+> 不新增 connector：证据和 atlas 都直接复用 wp-infra 里现成的 `http_sink`
+> （`connectors/sink.d/12-http_sink.toml`），sink 实例只覆盖 endpoint / fmt / headers。
 
 拷进 wparse 工作根，配三个环境变量：
 

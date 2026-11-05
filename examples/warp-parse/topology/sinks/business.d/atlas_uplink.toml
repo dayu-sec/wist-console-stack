@@ -2,9 +2,10 @@
 #
 # 放到 wparse 工作根的 `topology/sinks/business.d/` 下。
 #
-# 连接器（`connectors/sink.d/40-atlas_sink.toml`）只负责 POST，**不做字段映射**，
-# 所以发出去的记录形状 = 这里 `oml` 指向的模型的输出。atlas 要的是两字段
-# （比证据服务少一个 `cmd_id`：那是证据的幂等键，atlas 的幂等键在快照的 `snap_id` 里）：
+# **不新建 connector**：与证据一样复用现成的 `http_sink`
+# （`connectors/sink.d/12-http_sink.toml`），实例侧只覆盖 endpoint / fmt / headers。
+# 连接器不做字段映射，所以发出去的记录形状 = 这里 `oml` 指向的模型的输出。
+# atlas 要的是两字段（比证据服务少一个 `cmd_id`：那是证据的幂等键，atlas 的幂等键在快照的 `snap_id` 里）：
 #
 #   {"cust_id": "<atlas 租户 UUID>", "content": <DSNAP 记录或数组>}
 #
@@ -24,9 +25,14 @@ batch_timeout_ms = 300
 
 [[sink_group.sinks]]
 name = "atlas"
-connect = "atlas_sink"
+connect = "http_sink"
 tags = ["sink:atlas"]
 
 [sink_group.sinks.params]
 endpoint = "${ATLAS_SINK_URL}/internal/atlas"
+fmt = "json"
 batch_size = 1
+timeout_secs = 5
+
+[sink_group.sinks.params.headers]
+Content-Type = "application/json"
