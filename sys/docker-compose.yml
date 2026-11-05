@@ -166,6 +166,13 @@ services:
       WIST_CONSOLE_SEC_FILE: /sec/sec-value.yml
       # 证据读端口：`console.toml` 的 `evidence.base_url` 里是 `${EVIDENCE_READ_PORT}`。
       EVIDENCE_READ_PORT: ${EVIDENCE_READ_PORT}
+      # 自注册：`cred.toml` 里这几个都是 `${CONSOLE_…}`，与上面同一机制（BFF 启动时
+      # 用「密钥文件 + 进程环境」展开）。不收变量就只能改文件，而现场不该为此改文件。
+      CONSOLE_ADVERTISE_HOST: ${CONSOLE_ADVERTISE_HOST}
+      CONSOLE_CRED_URL: ${CONSOLE_CRED_URL}
+      CONSOLE_CRED_CA_FILE: ${CONSOLE_CRED_CA_FILE}
+      CONSOLE_CRED_INSECURE_TLS: ${CONSOLE_CRED_INSECURE_TLS}
+      CONSOLE_REQUIRE_CRED_SIGNATURE: ${CONSOLE_REQUIRE_CRED_SIGNATURE}
       TZ: ${TZ}
     ports:
       # 凭据收数监听（mTLS）：`wist-cred` 推摘要过来。没有它就只能用已登记的旧凭据。

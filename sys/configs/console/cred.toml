@@ -22,7 +22,8 @@ roles = ["read"]
 # “推送链路里的中间人不改内容”（纵深防御）。
 # 公钥在自注册成功后由 cred 写进同目录（issuer-signing.pub）；手动接入时由 join.sh 写。
 # 强制开着但公钥不在 → 启动期就报（不静默退化成“不验签”）。
-require_signature = ${CONSOLE_REQUIRE_CRED_SIGNATURE}
+# 字符串形式（`"true"` / `"${VAR}"`）与字面 bool 都认。
+require_signature = "${CONSOLE_REQUIRE_CRED_SIGNATURE}"
 issuer_public_key_file = "issuer-signing.pub"
 
 [init]
@@ -32,7 +33,7 @@ setup_code = "${SEC_CONSOLE_PEER_SETUP_CODE}"
 cred_url = "${CONSOLE_CRED_URL}"
 # 信任锚：入口自签时填它的 CA（容器内路径）。留空 = 不配（那就要开 insecure_tls）。
 ca_file = "${CONSOLE_CRED_CA_FILE}"
-insecure_tls = ${CONSOLE_CRED_INSECURE_TLS}
+insecure_tls = "${CONSOLE_CRED_INSECURE_TLS}"
 
 [publish]
 # cred 往这里推摘要、往这里探活。主机名必须等于证书 SAN（同一个变量渲染）。

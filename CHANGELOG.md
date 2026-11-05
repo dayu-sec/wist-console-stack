@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.1.23 · 2026-11-05
+
+- 跟版 `console v0.2.1-alpha`：修了 0.1.22 里那两处「配了但没生效」——
+  `[publish].endpoint` 的 `${VAR}` 不展开、布尔开关只认字面值。
+- 模板与 compose 对齐：`insecure_tls` / `require_signature` 改成**字符串**形式
+  `"${CONSOLE_…}"`（BFF 启动时用“密钥文件 + 进程环境”展开），
+  并把 `CONSOLE_*` 与 `CREDENTIALS_HOST_PORT` 真正传进 console 容器 ——
+  否则模板里的 `${CONSOLE_ADVERTISE_HOST}` 永远是一串字面占位符。
+
 ## 0.1.22 · 2026-11-05
 
 - **星象台自己向 cred 注册（P1）**：`console v0.2.0-alpha` + `console-web v0.1.12-alpha`。
