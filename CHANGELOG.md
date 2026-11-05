@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.1.25 · 2026-11-05
+
+- 跟版 `console v0.3.0-alpha` + `console-web v0.1.13-alpha`。
+- **登录端点**：`POST /api/login`（契约由 `wist-cred-peer` 0.5 统一）—— 令牌 → 
+  `{subject, roles, expires_at}`；前端因此能把「令牌不对」与「角色不够」分开说。
+  其它接口仍然每请求带 Bearer，没有引入 session。
+- console 侧修了 0.2.0 的**自注册启动死锁**（强制验签 + 公钥随注册下发 ⇒ 原本永远进不了 `/__init`），
+  并把“运行中删掉身份材料”“client CA 读不了”这类降级状态提到启动期/页面上。
+  所以 `CONSOLE_REQUIRE_CRED_SIGNATURE` 现在可以安全地开回 `true`（首次启动会 WARN 一句
+  “验签延后”，注册完成后重启即强制）。
+- web 侧：导航拍平为两段、概览只留“四域接没接上”、接口可用性页显示接口真实地址。
+
 ## 0.1.24 · 2026-11-05
 
 真机起栈时踩的三个坑，都补上了：
