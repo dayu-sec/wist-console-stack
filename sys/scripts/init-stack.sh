@@ -59,11 +59,32 @@ fi
 #    目录必须先存在：compose 把它只读挂到 `/etc/wist-console/cred`，源目录缺失时
 #    docker 会尝试在只读的 /etc/wist-console 里建挂载点，container 直接起不来。
 mkdir -p "${STACK_ROOT}/identity/console/cred"
-if [ -f "${STACK_ROOT}/identity/console/cred/cred.toml" ]; then
+CRED_DIR="${STACK_ROOT}/identity/console/cred"
+if [ -f "${CRED_DIR}/cred.toml" ]; then
   # 容器以 uid 10001 读这份材料（server.key 由接入命令写成 0600），
   # 所以**必须**对齐属主/权限：Linux 上跑 `gops sys perms --apply`。
-  note "cred materials: ${STACK_ROOT}/identity/console/cred"
-  note "  → 记得跑 \`gops sys perms --apply\`（容器以 uid 10001 读 server.key）"
+  note "cred materials: ${CRED_DIR}"
+  note '  → 记得跑 gops sys perms --apply（容器以 uid 10001 读 server.key）'
+
+  # 材料是不是这个服务的？接入命令可以在任何 --dir 下跑，放错了目录会表现为
+  # 「一切都对，但永远 401」—— 所以这里对 audience 和角色各校一次。
+  audience="$(sed -n 's/^audience[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' "${CRED_DIR}/cred.toml" | head -1)"
+  if [ "${audience}" != "wist-console" ]; then
+    note "  ⚠ cred.toml 的 audience 是 \"${audience:-<空>}\"，不是 wist-console —— 这份材料属于别的认证系统"
+  fi
+  if ! grep -q '"read"' "${CRED_DIR}/cred.toml"; then
+    note "  ⚠ cred.toml 的 [verify].roles 里没有 read：签发出来的令牌一律 403"
+  fi
+  # 证书 SAN 必须覆盖 cred 连的那个名字（接入命令的 --host）。
+  if [ -f "${SCRIPT_DIR}/lib/tls-san.sh" ] && [ -f "${CRED_DIR}/server.crt" ]; then
+    # shellcheck source=lib/tls-san.sh
+    . "${SCRIPT_DIR}/lib/tls-san.sh"
+    for name in "$(hostname)" "$(hostname -s 2>/dev/null || hostname)"; do
+      if ! wist_san_covers_domain "${CRED_DIR}/server.crt" "$name" >/dev/null 2>&1; then
+        note "  ⚠ server.crt 的 SAN 不含 ${name}：cred 用这个名字连过来会证书校验失败"
+      fi
+    done
+  fi
 else
   note "⚠ 缺少 ${STACK_ROOT}/identity/console/cred/cred.toml —— console 会拒启。"
   note "  先在 cred 页面建「认证系统」wist-console，再在本机执行接入命令："

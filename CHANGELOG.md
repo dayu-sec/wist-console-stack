@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.1.20 · 2026-11-05
+
+- 接入说明修了一次真实的踩坑：`join.sh` 少给 `--advertise` 时，cred 的 peer 记录里
+  **没有 endpoint**，表现成「已注册」但既不推送也不心跳；`peers.json` 里那条是空壳。
+  README 现在把四个参数（`--dir` / `--host` / `--advertise` / `--roles`）和各自不给的后果
+  写全，并说明 `CREDENTIALS_BIND_IP` 必须是 **cred 能到达的地址**（回环只有本机能连）。
+- `init-stack.sh` 增加材料自检：audience 是不是 `wist-console`、`[verify].roles` 有没有
+  `read`、`server.crt` 的 SAN 覆不覆盖本机名 —— 三种都会表现成「一切都对但永远 401」。
+- 顺带修：脚本里提示文案中的反引号会被 shell **真的执行**（`gops sys perms --apply` 被跑了一次），
+  改用单引号。
+
 ## 0.1.19 · 2026-11-05
 
 - 修 0.1.18 的两个装不起来的问题：

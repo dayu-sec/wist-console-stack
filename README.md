@@ -88,13 +88,37 @@ TLS 在 `web` 容器里终结（80 只给健康检查、不发布到宿主）。
 ### 接入 wist-cred（一次性）
 
 1. 在 cred 页面建一个「认证系统」，名字必须是 **`wist-console`**，角色至少勾 **`read`**；
-2. 拿到接入命令，在本栈根目录执行：
+2. 把 `CREDENTIALS_BIND_IP` 改成 **cred 能到达的地址**（cred 在别的机器/容器里时，
+   `127.0.0.1` 只会把收数端口藏在回环里，cred 永远推不进来）：
+
+   ```bash
+   # values/wist-console-stack/sys_value.yml 或直接改 .env
+   CREDENTIALS_BIND_IP=0.0.0.0      # 或本机内网网卡 IP
+   gops sys localize
+   ```
+
+3. 在**本栈根目录**执行接入命令 —— 三个参数都必须给全：
 
 ```bash
-curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/console/cred'
+curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- \
+  --dir './identity/console/cred' \
+  --host "$(hostname -f)" \
+  --advertise "https://$(hostname -f):${CREDENTIALS_HOST_PORT:-18802}/api/v1/internal/credentials" \
+  --roles admin,read
 ```
 
-3. `bash sys/scripts/init-stack.sh`（补 `data/console` 等运行态目录），再 `gops run start`。
+| 参数 | 不给会怎样 |
+|---|---|
+| `--dir` | 材料落到 `./wist-cred/...` 或被护栏拦下；**给错目录**最隐蔽——一切看起来正常，但本服务读不到 |
+| `--advertise` | cred 的 peer 记录里**没有 endpoint** → 不推送、不心跳，`peers.json` 里那条像个「已注册」的空壳 |
+| `--host` | 证书 SAN 用本机名；cred 用别的名字连过来会证书校验失败 |
+| `--roles` | 从没登记过角色 → 发不出凭据（`400 roles_not_registered`） |
+
+> `--advertise` 的地址**要带 `/api/v1/internal/credentials`**（cred ≥ 0.4.12 会自动补；
+> 旧版本漏了就是「心跳绿、推送全 404」）。
+
+4. `bash sys/scripts/init-stack.sh` 会校验材料（audience 是不是 `wist-console`、
+   有没有 `read` 角色、证书 SAN 覆不覆盖本机名），然后 `gops sys perms --apply` + `gops run start`。
 
 没有 `identity/console/cred/cred.toml` 时 `console` 会**拒启**（fail-closed，不是静默降级）。
 
