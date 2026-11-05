@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.1.22 · 2026-11-05
+
+- **星象台自己向 cred 注册（P1）**：`console v0.2.0-alpha` + `console-web v0.1.12-alpha`。
+  栈渲染 `[init]` + `[publish]`，首次启动只开 `/__init`：填 setup code + 接入券就完成登记，
+  材料落进 `identity/console/cred/`，收数监听**自己起来**（不需要重启、也不需要再跑 join.sh）。
+- 新变量：`CONSOLE_CRED_URL` / `CONSOLE_ADVERTISE_HOST` / `CONSOLE_CRED_CA_FILE` /
+  `CONSOLE_CRED_INSECURE_TLS` —— 换注册入口、换信任锚、确知跳过校验都不用改配置文件。
+  `CONSOLE_ADVERTISE_HOST` 空着时 console **启动期就拒**（地址会渲染成 `https://:18802/…`）。
+- 前端：未接入时不再「满屏 503」，而是一页说清下一步并直给 `/__init`。
+- `identity/` 下的材料（含 `server.key` 与 web CA 私钥）**移出版本库**；
+  README 的接入流程按自注册重写，并把已从 cred 侧删除的 `--advertise` 清掉。
+
 ## 0.1.21 · 2026-11-05
 
 - console `v0.1.13-alpha`：「接口可用性」多一条 **访问凭据（wist-cred）** ——
