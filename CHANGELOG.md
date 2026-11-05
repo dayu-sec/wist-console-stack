@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.1.26 · 2026-11-05
+
+- 修 0.1.25 的一个手误：跟版 `console-web` 时把 `EVIDENCE_IMAGE_TAG` 也从
+  `v0.1.12-alpha` 改成了 `v0.1.13-alpha`（而证据服务没发这个版本），
+  结果 `gops run start` 在拉镜像时 `manifest unknown`。现已改回 `v0.1.12-alpha`。
+- 只有这一个变量变了，其它镜像 tag 与 0.1.25 一致。
+
 ## 0.1.25 · 2026-11-05
 
 - 跟版 `console v0.3.0-alpha` + `console-web v0.1.13-alpha`。
