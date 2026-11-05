@@ -194,8 +194,15 @@ services:
       atlas-web:
         condition: service_started
     ports:
-      - "${WEB_BIND_IP}:${WEB_HOST_PORT}:80"
+      # 443：唯一浏览器入口（TLS 在这里终结 —— 访问令牌是 bearer，不能走明文）。
+      - "${WEB_BIND_IP}:${WEB_HOST_PORT}:443"
+    volumes:
+      # 站点配置由栈提供（镜像里那份是 HTTP 开发版本）。
+      - ./configs/web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # 站点身份：`sys/scripts/init-web-tls.sh` 生成的 web CA + 叶证书。
+      - ./identity/web:/certs:ro
     healthcheck:
+      # 走 80 的 /healthz（不打后端、不受证书影响）。
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz || exit 1"]
       interval: 10s
       timeout: 3s

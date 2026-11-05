@@ -27,7 +27,7 @@ copy_missing() {
 }
 
 # 1) 运行态目录（栈根）
-mkdir -p "${STACK_ROOT}/configs/evidence" "${STACK_ROOT}/configs/console" "${STACK_ROOT}/.wist"
+mkdir -p "${STACK_ROOT}/configs/evidence" "${STACK_ROOT}/configs/console" "${STACK_ROOT}/configs/web" "${STACK_ROOT}/.wist"
 # 证据正文（`objects.kind = file`）：宿主上可直接看。容器内是 uid 10001，
 # 而部署账号不是 10001，所以这里给到 0777（仅开发/测试栈；生产用 COS）。
 # 必须先建：否则 compose 会自己建一个 root:root 的目录，容器写不进去。
@@ -42,10 +42,11 @@ note "runtime dirs: ${STACK_ROOT}/configs, ${STACK_ROOT}/.wist, ${STACK_ROOT}/da
 # 2) 种子 -> 运行态（只补缺）
 copy_missing "${STACK_ROOT}/sys/configs/evidence" "${STACK_ROOT}/configs/evidence"
 copy_missing "${STACK_ROOT}/sys/configs/console" "${STACK_ROOT}/configs/console"
+copy_missing "${STACK_ROOT}/sys/configs/web" "${STACK_ROOT}/configs/web"
 note "seed copied (existing files kept)"
 
 # 3) 权限：配置 0644（不含密钥）；密钥目录 0700，由现场放 sec-value.yml（0640）
-chmod 0755 "${STACK_ROOT}/configs" "${STACK_ROOT}/configs/evidence" "${STACK_ROOT}/configs/console"
+chmod 0755 "${STACK_ROOT}/configs" "${STACK_ROOT}/configs/evidence" "${STACK_ROOT}/configs/console" "${STACK_ROOT}/configs/web"
 find "${STACK_ROOT}/configs" -type f -name '*.toml' -exec chmod 0644 {} +
 chmod 0700 "${STACK_ROOT}/.wist"
 if [ -f "${STACK_ROOT}/.wist/sec-value.yml" ]; then
@@ -55,6 +56,9 @@ else
 fi
 
 # 4) 凭据接入材料：没有它 console **起不来**（`auth.mode = cred` 是 fail-closed）。
+#    目录必须先存在：compose 把它只读挂到 `/etc/wist-console/cred`，源目录缺失时
+#    docker 会尝试在只读的 /etc/wist-console 里建挂载点，container 直接起不来。
+mkdir -p "${STACK_ROOT}/identity/console"
 if [ -f "${STACK_ROOT}/identity/console/cred/cred.toml" ]; then
   chmod 0600 "${STACK_ROOT}/identity/console/cred/server.key" 2>/dev/null || true
   note "cred materials: ${STACK_ROOT}/identity/console/cred"
@@ -62,6 +66,17 @@ else
   note "⚠ 缺少 ${STACK_ROOT}/identity/console/cred/cred.toml —— console 会拒启。"
   note "  先在 cred 页面建「认证系统」wist-console，再在本机执行接入命令："
   note "  curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/console/cred'"
+fi
+
+# 5) 前端 TLS：唯一浏览器入口在 web 容器里终结，没有证书 nginx 起不来。
+#    已有证书则幂等复用（CA 只建一次），并打印「该导哪份 CA」。
+DOMAIN="${WEB_DOMAIN:-localhost}"
+if [ -x "${STACK_ROOT}/sys/scripts/init-web-tls.sh" ]; then
+  bash "${STACK_ROOT}/sys/scripts/init-web-tls.sh" "$DOMAIN" "${STACK_ROOT}/identity/web" >/dev/null \
+    || { echo "  ✗ 生成 web TLS 证书失败（缺 openssl？）" >&2; exit 1; }
+  note "web TLS: ${STACK_ROOT}/identity/web（SAN: ${DOMAIN},localhost,127.0.0.1）"
+else
+  note "⚠ 缺少 sys/scripts/init-web-tls.sh：web 容器会因缺证书起不来"
 fi
 
 note "done"

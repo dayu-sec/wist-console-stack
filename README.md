@@ -44,14 +44,14 @@ bash sys/scripts/init-stack.sh
 docker compose --project-directory . -f sys/docker-compose.yml --env-file .env up -d
 
 # 4) 入口（默认只绑回环）
-#    http://127.0.0.1:8088/
+#    https://127.0.0.1:8088/   （TLS 在 web 容器里终结；证书自动生成）
 ```
 
 入口要**访问令牌**：`console` 配的是 `auth.mode = "cred"`，令牌由 `wist-cred` 签发。
 没有令牌就没有「匿名打开」这一档 —— 先把本栈接入凭据中心（见下面「接入 wisst-cred」）。
 
 ```bash
-curl -H 'Authorization: Bearer wcr_…' http://127.0.0.1:8088/api/health
+curl -k -H 'Authorization: Bearer wcr_…' https://127.0.0.1:8088/api/health
 ```
 
 ## 快速开始（gops）
@@ -70,7 +70,12 @@ gops run start
 
 ## 本机访问
 
-浏览器入口：**<http://127.0.0.1:8088/>**（`WEB_BIND_IP` / `WEB_HOST_PORT` 可改）。
+浏览器入口：**<https://127.0.0.1:8088/>**（`WEB_BIND_IP` / `WEB_HOST_PORT` 可改）。
+
+TLS 在 `web` 容器里终结（80 只给健康检查、不发布到宿主）。证书由
+`sys/scripts/init-web-tls.sh <域名>` 生成两级材料到 `identity/web/`：一张 web CA + 由它签的叶。
+**把 `identity/web/public/web-ca.crt.pem` 导入浏览器信任库一次**，之后换叶零动作；
+不导入就只能「继续访问（不安全）」。
 
 `console` 是 **`cred`** 模式（默认，也是唯一推荐）：
 
@@ -99,7 +104,7 @@ curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity
 入口（VPN / 堡垒机 / 反代）认证后注入 `x-console-operator` 即可：
 
 ```bash
-curl -H 'x-console-operator: zhangsan' http://127.0.0.1:8088/api/health
+curl -k -H 'x-console-operator: zhangsan' https://127.0.0.1:8088/api/health
 ```
 
 页面：
@@ -119,7 +124,8 @@ curl -H 'x-console-operator: zhangsan' http://127.0.0.1:8088/api/health
 
 | 变量 | 默认 | 作用 |
 |---|---|---|
-| `WEB_BIND_IP` / `WEB_HOST_PORT` | `127.0.0.1:8088` | 唯一浏览器入口 |
+| `WEB_BIND_IP` / `WEB_HOST_PORT` | `127.0.0.1:8088` | 唯一浏览器入口（HTTPS，容器内 443） |
+| `WEB_DOMAIN` | `localhost` | 证书 SAN 里的域名（SAN 同时带 `localhost` 与 `127.0.0.1`） |
 | `EVIDENCE_SINK_BIND_IP` / `EVIDENCE_SINK_HOST_PORT` | `127.0.0.1:18800` | 证据写入端口（数据面 `http_sink`） |
 | `ATLAS_INGEST_BIND_IP` / `ATLAS_INGEST_HOST_PORT` | `127.0.0.1:18801` | 资产拓扑写入端口（数据面投 DSNAP） |
 | `VM_BIND_IP` / `VM_HOST_PORT` | `127.0.0.1:18428` | VictoriaMetrics：数据面 remote write + 运维查询 |

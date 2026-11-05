@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 0.1.18 · 2026-11-05
+
+- **资产拓扑的数据面收进 BFF**：`/atlas/api/*` 不再由 nginx 直连 atlas-web，而是
+  `/atlas/api/x → console /api/atlas/x → atlas /x`。以前 `/atlas/api/hosts` 不带令牌就能
+  拿到全部主机，等于给令牌认证开了个后门。
+  配套：atlas-web 读宿主页同一个 `sessionStorage` 令牌（`v0.1.2-alpha`），console-web
+  两条 location 显式透传 `Authorization`（`v0.1.11-alpha`）。
+- **浏览器入口上 TLS**：`web` 容器在 443 上终结 TLS（80 只留给容器健康检查、不发布到宿主）。
+  证书由 `sys/scripts/init-web-tls.sh <域名>` 生成两级材料（web CA + 叶）到 `identity/web/`，
+  `init-stack.sh` 幂等调用；`WEB_HOST_PORT` 现在指 **HTTPS**。
+  访问令牌是 bearer，明文入口等于把凭据写在网线上 —— 这条不再可选。
+- `WEB_DOMAIN` 变量：证书 SAN 里的域名（SAN 同时带 `localhost` 与 `127.0.0.1`）。
+- console `v0.1.11-alpha` / console-web `v0.1.11-alpha` / atlas-web `v0.1.2-alpha`。
+
 ## 0.1.17 · 2026-11-05
 
 - **认证改成接 `wist-cred`（`auth.mode = "cred"`），删掉 0.1.16 的 `dev` 直通**。
