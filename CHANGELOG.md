@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 0.1.14 · 2026-11-05
+
+- **证据服务的写入契约改成三字段** `{cust_id, cmd_id, content}`（evidence `v0.1.12-alpha`）：
+  不再有站点 token、`[sink].auth`、旧信封（`IVSREP`）—— 尚未上线，不留兼容分支；
+  认证改由 P1 的 HTTPS 双向认证接管。`sec-value.yml` 不再需要 `SEC_EVIDENCE_SINK_TOKEN`。
+- 证据服务新增**写探针**（每 5 分钟一条真证据，24h 自动清），`/healthz` 的 `probe` 块
+  被星象台「接口可用性」页读出来显示（console `v0.1.9-alpha`）。
+- console-web `v0.1.9-alpha`：修「页面能开、所有 `/api` 挂掉」—— 上游容器重建后 nginx
+  拿着旧 IP 不再重新解析；现在 `/api` 与 `/atlas/` 都能自动跟上。
+- 证据读端口收敛成**一个栈级变量** `EVIDENCE_READ_PORT`（默认 `8443`）。
+  之前 `8443` 硬编码在三处（evidence 的 `[read].listen_addr`、compose 健康检查、
+  console 的 `evidence.base_url`），改一个就得手动改另外两个。
+- 注意：运行态 `configs/evidence/wist-evidence.toml` 与 `configs/console/console.toml`
+  需要同步成 `${EVIDENCE_READ_PORT}`（init 脚本只补缺不覆盖）。
+
 ## 0.1.13 · 2026-11-04
 
 - console `v0.1.8-alpha`：代理读正文的响应补 `cache-control: no-store` 与

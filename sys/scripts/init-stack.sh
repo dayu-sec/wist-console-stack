@@ -47,7 +47,7 @@ chmod 0700 "${STACK_ROOT}/.wist"
 if [ -f "${STACK_ROOT}/.wist/sec-value.yml" ]; then
   chmod 0640 "${STACK_ROOT}/.wist/sec-value.yml"
 else
-  note "缺少 ${STACK_ROOT}/.wist/sec-value.yml：至少需要 SEC_EVIDENCE_DB_URL 与 SEC_EVIDENCE_SINK_TOKEN"
+  note "缺少 ${STACK_ROOT}/.wist/sec-value.yml：至少需要 SEC_EVIDENCE_DB_URL"
 fi
 
 note "done"

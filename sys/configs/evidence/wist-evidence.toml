@@ -2,27 +2,40 @@
 #
 # `${SEC_...}` 的真值在 `sys/.wist/sec-value.yml`（0640），不写在这里。
 
-# ── 写面：数据面 http_sink 直投（明文，只在内网）────────────────────────────
+# ── 写面：数据面直投（明文，只在内网）─────────────────────────────────────
 [sink]
 listen_addr = "0.0.0.0:8080"
 max_body_bytes = 4194304
 # P0 只开调查报告；`diagnose_report` 等加进这个列表即可。
 allowed_kinds = ["investigation_report"]
 
-# 站点 token：**键**是 token（从密钥文件展开），值是租户 / 客户声明。
-# 一个站点一个 token；轮换 = 换密钥文件后重启。
-[sink.tokens."${SEC_EVIDENCE_SINK_TOKEN}"]
-tenant_id = "t-001"
-customer_id = "c-001"
+# 三字段形状（`cust_id` / `cmd_id` / `content`）的默认口径。
+# **租户就是客户**：`cust_id` 直接当分区键（对象键第一段 + 索引租户列）。
+default_kind = "investigation_report"
+default_schema = "wist.evidence/v1"
+default_sensitivity = "paths"
+
+# 认证：写入端点不校验（内网可信）；P1 换成 HTTPS 双向认证。
 
 # ── 读面：console BFF 调用（P0 明网 + 身份头；mTLS 在 P1）─────────────────
+# 端口由栈级变量 `EVIDENCE_READ_PORT` 给（`.env` / `values/`），不在这里写死。
 [read]
-listen_addr = "0.0.0.0:8443"
+listen_addr = "0.0.0.0:${EVIDENCE_READ_PORT}"
 
 # ── 索引：独立库（不与环境里的其它服务共用）────────────────────────────────
 [index]
 kind = "postgres"
 database_url = "${SEC_EVIDENCE_DB_URL}"
+
+# ── 写探针：每 5 分钟往自己的写路径投一条真证据，验证「对象 + 索引」都能写。──
+# 探针产物 `subject_id = "_probe"`；超过 `retention_hours` 的每小时扫一次删掉。
+# 也要看结果：证据服务的 `/healthz` 会多一个 `probe` 块（星象台「接口可用性」页读它）。
+[probe]
+enabled = true
+interval_secs = 300
+retention_hours = 24
+# 可选：覆盖探针要打的写端点（默认由 sink 监听地址推 127.0.0.1:<port>）
+# url = "http://127.0.0.1:8080/internal/evidence"
 
 # ── 对象存储：两种模式（file | s3）────────────────────────────────────────
 # file：本地目录，方便测试/现场验证 —— 重启不丢，能直接看文件；**不支持预签名**。

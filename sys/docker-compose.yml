@@ -15,6 +15,7 @@
 #   evidence-pg      ${PG_BIND_IP}:${EVIDENCE_PG_HOST_PORT}:5432
 #   atlas-pg         ${PG_BIND_IP}:${ATLAS_PG_HOST_PORT}:5432
 #   evidence（读）/ console / atlas / atlas-web：只在 compose 网络内，不绑宿主端口
+#                    证据读端口是 `${EVIDENCE_READ_PORT}`（与 evidence 配置 / console 同一来源）
 name: wist-console-stack
 
 services:
@@ -66,6 +67,8 @@ services:
     environment:
       WIST_EVIDENCE_CONFIG: /etc/wist-evidence/wist-evidence.toml
       WIST_EVIDENCE_SEC_FILE: /sec/sec-value.yml
+      # 读监听端口：配置文件里是 `${EVIDENCE_READ_PORT}`，健康检查与 console 也用它。
+      EVIDENCE_READ_PORT: ${EVIDENCE_READ_PORT}
       TZ: ${TZ}
     ports:
       # 写端口（明文，只在内网）：数据面 http_sink 直投。
@@ -79,8 +82,9 @@ services:
       # 生产切 COS（`objects.kind = s3`）时把这块去掉。
       - ./data/evidence-objects:/var/lib/wist-evidence/objects
     healthcheck:
-      # 读监听是 8443（P0 明文 + 身份头；mTLS 在 P1），走 busybox，不依赖 curl。
-      test: ["CMD", "/bin/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8443/healthz"]
+      # 读监听（P0 明文 + 身份头；mTLS 在 P1），走 busybox，不依赖 curl。
+      # 端口跟着 `EVIDENCE_READ_PORT` 走。
+      test: ["CMD", "/bin/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:${EVIDENCE_READ_PORT}/healthz"]
       interval: 10s
       timeout: 3s
       retries: 12
@@ -129,6 +133,8 @@ services:
     environment:
       WIST_CONSOLE_CONFIG: /etc/wist-console/console.toml
       WIST_CONSOLE_SEC_FILE: /sec/sec-value.yml
+      # 证据读端口：`console.toml` 的 `evidence.base_url` 里是 `${EVIDENCE_READ_PORT}`。
+      EVIDENCE_READ_PORT: ${EVIDENCE_READ_PORT}
       TZ: ${TZ}
     volumes:
       - ./configs/console:/etc/wist-console:ro

@@ -11,10 +11,12 @@ listen_addr = "0.0.0.0:8080"
 mode = "ingress"
 operator_header = "x-console-operator"
 
-# 身份：必须与 `configs/evidence/evidence.toml` 的 sink 租户一致。
+# 身份：**这里的 tenant 就是客户 id**（证据服务的租户=客户）。
+# 想同时看多个客户需要 console 侧加客户筛选（当前一页一个客户）。
+# 端口来自栈级变量 `EVIDENCE_READ_PORT`，与证据服务的监听保持同一个来源。
 [evidence]
-base_url = "http://evidence:8443"
-tenant = "t-001"
+base_url = "http://evidence:${EVIDENCE_READ_PORT}"
+tenant = "c-001"
 scopes = ["evidence:read"]
 max_sensitivity = "paths"
 timeout_secs = 10

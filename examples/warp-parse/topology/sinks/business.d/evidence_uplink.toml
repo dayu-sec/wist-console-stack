@@ -1,0 +1,29 @@
+# 证据入库：把 OML 的输出直接写进证据库
+#
+# 放到 wparse 工作根的 `topology/sinks/business.d/` 下。
+#
+# 连接器（`connectors/sink.d/30-evidence_sink.toml`）只负责 POST，**不做字段映射**，
+# 所以发出去的记录形状 = 这里 `oml` 指向的模型的输出。证据服务要的是三字段：
+#
+#   {"cust_id": "c-001", "cmd_id": "cmd-...", "content": <任意 JSON / JSON 字符串>}
+#
+# 因此 OML 的输出必须是这三个字段（`content` 可以是 `body` 原样搬过来）。
+# `cust_id` 的来源取决于部署形态：
+#   - 一个 wparse 实例只服务一个客户 → OML 里写常量；
+#   - 多客户混在同一条流里 → 用解析出来的租户/客户字段，或按 source 分流成多个 sink_group。
+[sink_group]
+name = "evidence-uplink"
+# 目标 OML：输出 `cust_id` / `cmd_id` / `content`（见上）。
+oml = ["evidence_uplink"]
+tags = ["biz:evidence"]
+batch_size = 1
+batch_timeout_ms = 300
+
+[[sink_group.sinks]]
+name = "evidence"
+connect = "evidence_sink"
+tags = ["sink:evidence"]
+
+[sink_group.sinks.params]
+endpoint = "${EVIDENCE_SINK_URL}/internal/evidence"
+batch_size = 1

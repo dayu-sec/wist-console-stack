@@ -15,7 +15,7 @@
 |---|---|---|---|
 | `web` | 唯一浏览器入口：静态托管 + `/api`、`/atlas/` 反代 | `${WEB_BIND_IP}:${WEB_HOST_PORT}:80` | `wist-console-web` |
 | `console` | BFF：身份 / 健康聚合 / 预签名转发 | 仅 compose 网络 `:8080` | `wist-console` |
-| `evidence` | 证据索引 + 对象存储 | 写 `${EVIDENCE_SINK_BIND_IP}:${EVIDENCE_SINK_HOST_PORT}:8080`；读仅网络内 `:8443` | `wist-evidence` |
+| `evidence` | 证据索引 + 对象存储 | 写 `${EVIDENCE_SINK_BIND_IP}:${EVIDENCE_SINK_HOST_PORT}:8080`；读仅网络内 `:${EVIDENCE_READ_PORT}` | `wist-evidence` |
 | `atlas` | 资产与拓扑 API | 仅网络内 `:8080` | `wist-atlas` |
 | `atlas-web` | 拓扑画布（挂 `/atlas/`） | 仅网络内 `:80` | `wist-atlas-web` |
 | `evidence-postgres` | 证据索引库 | `${PG_BIND_IP}:${EVIDENCE_PG_HOST_PORT}:5432` | `postgres` |
@@ -33,7 +33,6 @@ cp .env.example .env
 mkdir -p sys/.wist
 cat > sys/.wist/sec-value.yml <<'YAML'
 SEC_EVIDENCE_DB_URL: postgres://evidence:evidence-dev-only@evidence-postgres:5432/wist_evidence
-SEC_EVIDENCE_SINK_TOKEN: tok_dev_replace_me
 YAML
 chmod 0640 sys/.wist/sec-value.yml
 
@@ -100,14 +99,25 @@ curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
 
 ## 密钥与配置
 
+### 端口与地址（都在 `sys/setting/vars.yml`，现场在 `values/` 覆盖）
+
+| 变量 | 默认 | 作用 |
+|---|---|---|
+| `WEB_BIND_IP` / `WEB_HOST_PORT` | `127.0.0.1:8088` | 唯一浏览器入口 |
+| `EVIDENCE_SINK_BIND_IP` / `EVIDENCE_SINK_HOST_PORT` | `127.0.0.1:18800` | 数据面写入端口（**唯一需要内网开放的**） |
+| `EVIDENCE_READ_PORT` | `8443` | 证据读监听（容器内）。**一个来源**：evidence 的 `[read].listen_addr`、compose 健康检查、console 的 `evidence.base_url` 都从它来 |
+| `PG_BIND_IP` / `EVIDENCE_PG_HOST_PORT` / `ATLAS_PG_HOST_PORT` | `127.0.0.1:55434/55435` | 两个 PG（仅供排查） |
+
+> 改 `EVIDENCE_READ_PORT` 后只需 `gops sys localize && gops run start`；配置文件里写的是
+> `listen_addr = "0.0.0.0:${EVIDENCE_READ_PORT}"`，不要再把端口写死回 TOML。
+
 | 文件 | 内容 |
 |---|---|
 | `sys/configs/evidence/wist-evidence.toml` | 种子：sink 监听 / 允许的 kind / 索引库 / 对象存储（运行态在 `configs/evidence/`） |
 | `sys/configs/console/console.toml` | 入口身份、到证据服务的租户与敏感度、atlas 探活地址 |
-| `sys/.wist/sec-value.yml` | `${SEC_...}` 的真值（DB URL、sink token、COS 凭据），**不入库** |
+| `sys/.wist/sec-value.yml` | `${SEC_...}` 的真值（DB URL、COS 凭据），**不入库** |
 
-- 证据服务的 sink token 以 `${SEC_EVIDENCE_SINK_TOKEN}` 作**键**（`wist-evidence v0.1.5+`），
-  明文不落配置文件；
+- 写端点不校验身份（内网可信）；P1 换成 HTTPS 双向认证；
 - 两处 `tenant`（evidence 的 sink 声明与 console 的读身份）必须一致。
 
 ### 证据正文存在哪（两种模式）
@@ -133,6 +143,26 @@ zstd -dc data/evidence-objects/t-001/investigation_report/2026/11/*.json.zst | j
   页面会自动改走 BFF 代理读（`GET /api/evidence/{id}/content`），所以「打开正文」照旧可用；
   要签名 URL（例如让外部消费者直连桶）才需要切 `s3`。
 
+### 写探针（每 5 分钟一条真证据）
+
+证据服务会自己每 5 分钟往写路径投一条**探针证据**（`subject_id = "_probe"`），
+验证「对象 + 索引」真的写得进去；超过 24h 的探针每小时扫一次删掉。
+
+```toml
+[probe]
+enabled = true
+interval_secs = 300      # 投递间隔
+retention_hours = 24     # 能活多久；实际每小时扫一次
+# url = "http://127.0.0.1:8080/internal/evidence"   # 可选；默认由 sink 监听地址推开环地址
+```
+
+结果在证据服务 `/healthz` 的 `probe` 块里，星象台「接口可用性」页会显示成
+「写探针 12 秒前成功（3 ms）」。
+
+> 探针就是一个**小号的 wparse**：同样的 URL、同样的三字段形状。所以它验的是整条写链路
+> —— 路由 → 序列化 → 对象 → 索引，而不只是「进程活着」。写端口的连通性也包含在内。
+> 需要 `wist-evidence ≥ v0.1.12`（尚未发布）。
+
 ## 与其它栈的关系
 
 - `atlas` / `atlas-web` 也可以继续由 `wist-atlas-stack` 单独跑；本栈内置一份是为了**一个入口**。
@@ -150,24 +180,31 @@ docker compose -f sys/docker-compose.yml --env-file .env up -d
 
 ## 给 WarpParse 的写入配置（可直接 copy）
 
-证据库的写端点是 `POST /internal/evidence`，认证用 **Basic：username = 站点 token**
-（wparse 的 http 连接器只有 `username` / `password` 两个稳定字段）。
+证据库的写端点是 `POST /internal/evidence`，请求体就三字段：
+
+```json
+{ "cust_id": "c-001", "cmd_id": "cmd-...", "content": { "...": "..." } }
+```
+
+`cust_id` 同时就是**租户/分区键**（对象键第一段），所以一个 wparse 可以同时写多个客户。
+认证现在是 `auth = "none"`（内网可信），将来换 HTTPS 双向认证。
 
 现成的两份配置在 [`examples/warp-parse/`](examples/warp-parse/)：
 
 ```text
-examples/warp-parse/connectors/sink.d/30-evidence_sink.toml
-examples/warp-parse/topology/sinks/business.d/agent_ivsrep_evidence.toml
+examples/warp-parse/connectors/sink.d/30-evidence_sink.toml      # 只负责 POST
+examples/warp-parse/topology/sinks/business.d/evidence_uplink.toml  # 绑定 OML
 ```
 
-拷进 wparse 工作根，配两个环境变量即可：
+拷进 wparse 工作根，配一个环境变量即可：
 
 ```bash
 EVIDENCE_SINK_URL=http://<证据服务内网地址>:18800     # EVIDENCE_SINK_BIND_IP / PORT
-EVIDENCE_SINK_TOKEN=<与 sys/.wist/sec-value.yml 里的 SEC_EVIDENCE_SINK_TOKEN 一致>
 ```
 
-前提：平台侧 ingest 要先加载 `agent_uplink_ivsrep` 的 WPL/OML（这套规则目前只在网关栈里）。
+**关键前提**：连接器不做字段映射，发出去的就是 OML 的输出 —— 所以那个 OML 必须产出
+`cust_id` / `cmd_id` / `content`。
+
 详见 [`examples/warp-parse/README.md`](examples/warp-parse/README.md)。
 
 ## 容器用户与挂载权限

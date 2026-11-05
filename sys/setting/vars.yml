@@ -7,16 +7,15 @@
 # 容器内端口/路径/服务名是应用契约，直接写在 sys/docker-compose.yml 里。
 system:
   # 镜像来自不同仓、各自发版，所以 tag 分开。
-  # 证据服务的写端口发布在 0.1.2+（sink token 键支持 ${SEC_}）。
   - name: CONSOLE_REGISTRY
     value: ghcr.io/dayu-sec
 
   - name: CONSOLE_IMAGE_TAG
-    value: v0.1.8-alpha
+    value: v0.1.9-alpha
   - name: CONSOLE_WEB_IMAGE_TAG
-    value: v0.1.8-alpha
+    value: v0.1.9-alpha
   - name: EVIDENCE_IMAGE_TAG
-    value: v0.1.10-alpha
+    value: v0.1.12-alpha
 
   - name: ATLAS_REGISTRY
     value: ghcr.io/dayu-sec
@@ -43,6 +42,12 @@ system:
     value: 127.0.0.1
   - name: EVIDENCE_SINK_HOST_PORT
     value: 18800
+
+  # 证据读端口（容器内，不绑宿主端口，只在 compose 网络里）。
+  # 一个来源：evidence 的 `[read].listen_addr`、compose 健康检查、console 的 `base_url`
+  # 都从这里来；改这里就全改。
+  - name: EVIDENCE_READ_PORT
+    value: 8443
 
   # 两个 PG（证据 / 资产生命周期不同，刻意分开）。默认只绑回环，供运维排查。
   - name: PG_BIND_IP
