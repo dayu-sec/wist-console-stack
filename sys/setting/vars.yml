@@ -11,7 +11,7 @@ system:
     value: ghcr.io/dayu-sec
 
   - name: CONSOLE_IMAGE_TAG
-    value: v0.1.9-alpha
+    value: v0.1.10-alpha
   - name: CONSOLE_WEB_IMAGE_TAG
     value: v0.1.9-alpha
   - name: EVIDENCE_IMAGE_TAG
@@ -20,7 +20,7 @@ system:
   - name: ATLAS_REGISTRY
     value: ghcr.io/dayu-sec
   - name: ATLAS_IMAGE_TAG
-    value: v0.3.1
+    value: v0.3.2
   - name: ATLAS_WEB_IMAGE_TAG
     value: v0.1.1-alpha
 
