@@ -2,7 +2,9 @@
 
 ## 0.1.15 · 2026-11-05
 
-- **证据 / 资产两条写入链路对齐成同一个契约**：`{cust_id, cmd_id, content}`，无认证。
+- **证据 / 资产两条写入链路语义对齐**（都是「谁的 + 内容」，无认证）：证据是
+  `{cust_id, cmd_id, content}`，资产是 `{cust_id, content}` —— atlas 没有「命令」这个对象，
+  用快照自己的 `snap_id` 判重，所以不强制一个不参与判重的 `cmd_id`。
   atlas 新增 `POST /internal/atlas`（`content` 是 DSNAP 记录），宿主端口
   `${ATLAS_INGEST_BIND_IP}:${ATLAS_INGEST_HOST_PORT}`（默认 18801）。
 - **集成 VictoriaMetrics**（`metrics` 服务，默认宿主 18428）：数据面用 wparse 自带的

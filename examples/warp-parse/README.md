@@ -10,8 +10,9 @@ topology/sinks/business.d/atlas_uplink.toml      # 资产 sink 分组
 topology/sinks/infra.d/metrics_uplink.toml       # 运行指标 → VictoriaMetrics
 ```
 
-> 证据与资产拓扑都是**三字段契约**（`cust_id` / `cmd_id` / `content`），证据服务与 atlas
-> 都不校验身份。指标走 wparse 自带的 `victoriametrics_sink`，不是三字段。
+> 证据是三字段（`cust_id` / `cmd_id` / `content`），**资产拓扑是两字段**（`cust_id` / `content`）：
+> `cmd_id` 是证据的幂等键，atlas 的幂等键在快照自己的 `snap_id` 里。两边都不校验身份。
+> 指标走 wparse 自带的 `victoriametrics_sink`，也不是这两种信封。
 
 ## 1. 环境变量（wparse 进程可见）
 
@@ -31,7 +32,7 @@ WIST_METRICS_ENDPOINT=http://<console-stack 内网地址>:18428
 
 ## 2. 前提检查
 
-- **OML 必须输出三字段**：`cust_id` / `cmd_id` / `content`。
+- **OML 必须输出契约字段**：证据是 `cust_id` / `cmd_id` / `content`，atlas 是 `cust_id` / `content`。
   连接器不做字段映射，发出去的就是 OML 的输出。
   `cust_id` 的来源看你：一个实例一个客户 → 常量；多客户混流 → 用解析出的客户字段，
   或按 source 分流成多个 sink_group。**atlas 的 `cust_id` 是 atlas 租户 UUID**，不是客户号。
@@ -66,7 +67,7 @@ curl -sS -X POST "${EVIDENCE_SINK_URL}/internal/evidence" \
 ```bash
 curl -sS -X POST "${ATLAS_SINK_URL}/internal/atlas" \
   -H 'Content-Type: application/json' \
-  -d '{"cust_id":"<atlas 租户 UUID>","cmd_id":"cmd-discovery-1","content":{"schema":"v1","agent_id":"agent-probe","biz":"agent-discovery","env":"dev","body":"<DSNAP 快照 JSON 字符串>"}}'
+  -d '{"cust_id":"<atlas 租户 UUID>","content":{"schema":"v1","agent_id":"agent-probe","biz":"agent-discovery","env":"dev","body":"<DSNAP 快照 JSON 字符串>"}}'
 ```
 
 应回 `200` + `{"status":"accepted","count":1,"ingested":1,"rejected":0,"hosts":1,...}`；
@@ -96,8 +97,9 @@ curl -sS "${WIST_METRICS_ENDPOINT}/api/v1/query?query=vm_app_start_timestamp" | 
 `cust_id` 同时就是**租户/分区键**（对象键第一段），所以一个 wparse 可以同时写多个客户。
 `subject` 可选，缺省等于 `cust_id`。
 
-**资产拓扑**：`cust_id` 必须是 atlas 租户 UUID；`cmd_id` 只做追踪，不参与判重
-（判重靠快照里的 `snap_id`）；`content` 是 DSNAP 记录或记录数组（单次最多 64 条，body 上限 16 MB）。
+**资产拓扑**：`cust_id` 必须是 atlas 租户 UUID；`content` 是 DSNAP 记录或记录数组
+（单次最多 64 条，body 上限 16 MB）。**没有 `cmd_id`**：判重靠快照里的 `snap_id`，
+多传的键会被忽略。
 
 **运行指标**：没有三字段。端点要么是 `http://metrics:8428`（同栈），
 要么是 `http://<console-stack 内网地址>:18428`（数据面在别的机器）。

@@ -3,10 +3,10 @@
 # 放到 wparse 工作根的 `topology/sinks/business.d/` 下。
 #
 # 连接器（`connectors/sink.d/40-atlas_sink.toml`）只负责 POST，**不做字段映射**，
-# 所以发出去的记录形状 = 这里 `oml` 指向的模型的输出。atlas 要的是三字段
-# （与证据服务同一个形状）：
+# 所以发出去的记录形状 = 这里 `oml` 指向的模型的输出。atlas 要的是两字段
+# （比证据服务少一个 `cmd_id`：那是证据的幂等键，atlas 的幂等键在快照的 `snap_id` 里）：
 #
-#   {"cust_id": "<atlas 租户 UUID>", "cmd_id": "cmd-...", "content": <DSNAP 记录或数组>}
+#   {"cust_id": "<atlas 租户 UUID>", "content": <DSNAP 记录或数组>}
 #
 # `content` 就是网关 `agent-discovery.jsonl` 里那一行（`schema`/`agent_id`/`body`…）：
 # atlas 用与读文件路径**同一个**转换函数，所以不需要在这里做任何重组。
@@ -16,7 +16,7 @@
 #   - 多租户混在同一条流里 → 用解析出来的租户字段，或按 source 分流成多个 sink_group。
 [sink_group]
 name = "atlas-uplink"
-# 目标 OML：输出 `cust_id` / `cmd_id` / `content`（见上）。
+# 目标 OML：输出 `cust_id` / `content`（见上）。
 oml = ["atlas_uplink"]
 tags = ["biz:atlas"]
 batch_size = 1

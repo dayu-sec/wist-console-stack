@@ -189,7 +189,7 @@ docker compose -f sys/docker-compose.yml --env-file .env up -d
 | 目标 | 端点 | 契约 |
 |---|---|---|
 | 证据 | `POST /internal/evidence` | 三字段 `{cust_id, cmd_id, content}` |
-| 资产拓扑 | `POST /internal/atlas` | 三字段，`content` 是 DSNAP 记录 |
+| 资产拓扑 | `POST /internal/atlas` | 两字段 `{cust_id, content}`，`content` 是 DSNAP 记录 |
 | 运行指标 | `victoriametrics_sink` → `/api/v1/*` | wparse 自带的 VM sink，不是三字段 |
 
 ```text
@@ -209,7 +209,9 @@ WIST_METRICS_ENDPOINT=http://<本栈内网地址>:18428      # VM_BIND_IP / VM_H
 ```
 
 **关键前提**：连接器不做字段映射，发出去的就是 OML 的输出 —— 所以 OML 必须产出
-`cust_id` / `cmd_id` / `content`；atlas 的 `cust_id` 是 atlas 租户 UUID，不是客户号。
+证据的 `cust_id` / `cmd_id` / `content`，或 atlas 的 `cust_id` / `content`
+（atlas 不需要 `cmd_id`：它的幂等键在快照的 `snap_id` 里）。
+atlas 的 `cust_id` 是 atlas 租户 UUID，不是客户号。
 
 ### 运行指标怎么接
 
