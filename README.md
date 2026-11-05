@@ -47,11 +47,13 @@ docker compose --project-directory . -f sys/docker-compose.yml --env-file .env u
 #    http://127.0.0.1:8088/
 ```
 
-入口前面必须有 **VPN / 堡垒机 / 反代**，并注入 `x-console-operator`（`console` 的 `ingress` 模式要它）。
-本地自测可以直接带头：
+入口默认是本机直开：`console` 配的是 `auth.mode = "dev"`，浏览器不需要任何头。
+**上生产前必须切回 `ingress`**（见下面「本机访问」），并在最前面放 VPN / 堡垒机 / 反代
+注入 `x-console-operator`。
 
 ```bash
-curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
+curl http://127.0.0.1:8088/api/health          # dev：直接能用
+curl -H 'x-console-operator: local' ...       # ingress：入口注入的头
 ```
 
 ## 快速开始（gops）
@@ -72,20 +74,24 @@ gops run start
 
 浏览器入口：**<http://127.0.0.1:8088/>**（`WEB_BIND_IP` / `WEB_HOST_PORT` 可改）。
 
-默认 `console` 是 `ingress` 模式：入口必须注入 `x-console-operator`，所以浏览器直接打开时
-`/api/*` 会回 401（页面框架能出来，但会提示 BFF 不可用）。本机调试把**运行态**配置切成 dev
-（`sys/configs` 里的种子保持 `ingress`，不影响交付默认值）：
+默认 `console` 是 **`dev`** 模式：`WEB_BIND_IP` 默认只绑回环（127.0.0.1），
+所以浏览器直接打开就能用，不需要任何头。
+
+**把 `WEB_BIND_IP` 改成非回环地址（现场 / 共享网络）之前，先切 `ingress`**：
 
 ```bash
-sed -i '' 's/^mode = "ingress"$/mode = "dev"/' configs/console/console.toml
-docker restart wist-console-stack-console
+# sys/configs/console/console.toml 是种子；现场改运行态 configs/console/console.toml
+mode = "ingress"
+# 然后入口必须注入操作员身份，否则 /api/* 一律 401 console_operator_missing
+curl -H 'x-console-operator: zhangsan' http://127.0.0.1:8088/api/health
 ```
 
-不想改配置，也可以继续用带头的 curl：
+为什么默认是 `dev` 而不是 `ingress`：本栈的唯一浏览器入口只绑回环，等价于「只有本机能进」；
+而 `ingress` 在没有反代的机器上会让页面整个不可用（`console_operator_missing`）。
+宁可默认能用，也不要默认「看起来能开、其实每个接口都 401」。
 
-```bash
-curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
-```
+> 审计身份：`dev` 模式没有操作员身份（审计日志里那一条为空）；
+> 需要「谁看的 / 谁导的」可追溯，就必须切 `ingress` 并在入口做认证。
 
 页面：
 
