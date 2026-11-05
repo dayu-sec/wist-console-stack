@@ -6,15 +6,20 @@
 #   evidence    wist-evidence：索引 + 对象存储（正文只在计算区与 COS 之间流动）
 #   atlas       wist-atlas：资产与拓扑 API
 #   atlas-web   wist-atlas-web：拓扑画布（挂在 /atlas/，不单独对外）
+#   metrics     VictoriaMetrics：数据面 remote-write 进来的运行指标
 #   两个 PG     证据与资产生命周期不同，刻意分开
 #
 # 端口（宿主:容器；宿主端口与 BIND_IP 见 sys/setting/vars.yml）：
 #   web              ${WEB_BIND_IP}:${WEB_HOST_PORT}:80      唯一浏览器入口
 #   evidence（写）    ${EVIDENCE_SINK_BIND_IP}:${EVIDENCE_SINK_HOST_PORT}:8080
 #                    给平台数据面 wparse http_sink 投递；**这是唯一需要内网开放的端口**
+#   atlas（写）       ${ATLAS_INGEST_BIND_IP}:${ATLAS_INGEST_HOST_PORT}:8080
+#                    给数据面 wparse 投 DSNAP（与 evidence 同一个三字段形状）
+#   metrics          ${VM_BIND_IP}:${VM_HOST_PORT}:8428
+#                    数据面 remote write / 运维查指标
 #   evidence-pg      ${PG_BIND_IP}:${EVIDENCE_PG_HOST_PORT}:5432
 #   atlas-pg         ${PG_BIND_IP}:${ATLAS_PG_HOST_PORT}:5432
-#   evidence（读）/ console / atlas / atlas-web：只在 compose 网络内，不绑宿主端口
+#   evidence（读）/ console / atlas-web：只在 compose 网络内，不绑宿主端口
 #                    证据读端口是 `${EVIDENCE_READ_PORT}`（与 evidence 配置 / console 同一来源）
 name: wist-console-stack
 
@@ -99,7 +104,14 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://${ATLAS_PG_USER}:${ATLAS_PG_PASSWORD}@atlas-postgres:5432/${ATLAS_PG_DB}
+      # 写探针：往保留租户写一份最小 DSNAP，验「转换 → 落库 → 物化」。
+      # 关掉就只是没有 probe 块，`/healthz` 仍返回 `{"status":"ok"}`。
+      WIST_ATLAS_PROBE: ${ATLAS_PROBE}
+      WIST_ATLAS_PROBE_INTERVAL_SECS: ${ATLAS_PROBE_INTERVAL_SECS}
       TZ: ${TZ}
+    # 写入端点（`/internal/atlas`）与读接口同一个监听：数据面 POST 到这里。
+    ports:
+      - "${ATLAS_INGEST_BIND_IP}:${ATLAS_INGEST_HOST_PORT}:8080"
     command: ["postgres-live", "serve", "--listen", "0.0.0.0:8080"]
     healthcheck:
       test: ["CMD-SHELL", "/bin/busybox wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1"]
@@ -107,6 +119,25 @@ services:
       timeout: 3s
       retries: 12
       start_period: 10s
+
+  metrics:
+    container_name: wist-console-stack-metrics
+    image: ${VM_REGISTRY}/victoria-metrics:${VM_IMAGE_TAG}
+    restart: unless-stopped
+    command:
+      - --retentionPeriod=${VM_RETENTION}
+      - --storageDataPath=/storage
+      - --search.latencyOffset=0s
+    ports:
+      - "${VM_BIND_IP}:${VM_HOST_PORT}:8428"
+    volumes:
+      - metrics-data:/storage
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8428/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   atlas-web:
     container_name: wist-console-stack-atlas-web
@@ -167,3 +198,4 @@ services:
 volumes:
   evidence-pgdata:
   atlas-pgdata:
+  metrics-data:

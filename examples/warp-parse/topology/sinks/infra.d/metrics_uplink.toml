@@ -1,0 +1,34 @@
+# 运行指标入库：把数据面统计镜像到 console-stack 的 VictoriaMetrics
+#
+# 放到 wparse 工作根的 `topology/sinks/infra.d/` 下（与网关栈的 `monitor.toml` 同型）。
+#
+# 与证据 / atlas 的区别：**这不是三字段契约**。指标走的是 wparse 自带的
+# `victoriametrics_sink`（把统计点按 VM 的 JSON line 推进去），端点由
+# `WIST_METRICS_ENDPOINT` 注入 —— 指向本栈的 `metrics` 服务。
+#
+# 端点怎么写：
+#   - 同一个 compose 网络（wparse 也在这个栈里）：http://metrics:8428
+#   - 数据面在**别的**机器（网关栈 / 现场）：http://<console-stack 内网地址>:${VM_HOST_PORT}
+# 两种情况都用环境变量注入，不要在配置文件里写死地址。
+[sink_group]
+name = "monitor"
+batch_size = 1
+batch_timeout_ms = 300
+
+[[sink_group.sinks]]
+connect = "file_proto_text_sink"
+
+[sink_group.sinks.params]
+file = "monitor.dat"
+
+[sink_group.sinks.expect]
+max = 1.0
+
+# 统计指标镜像到 VictoriaMetrics（本栈的 `metrics` 服务）。
+[[sink_group.sinks]]
+name = "metrics_vmetrics_sink"
+connect = "victoriametrics_sink"
+tags = ["sink:vmetrics"]
+
+[sink_group.sinks.params]
+endpoint = "${WIST_METRICS_ENDPOINT}"

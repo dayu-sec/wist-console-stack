@@ -16,13 +16,14 @@
 | `web` | 唯一浏览器入口：静态托管 + `/api`、`/atlas/` 反代 | `${WEB_BIND_IP}:${WEB_HOST_PORT}:80` | `wist-console-web` |
 | `console` | BFF：身份 / 健康聚合 / 预签名转发 | 仅 compose 网络 `:8080` | `wist-console` |
 | `evidence` | 证据索引 + 对象存储 | 写 `${EVIDENCE_SINK_BIND_IP}:${EVIDENCE_SINK_HOST_PORT}:8080`；读仅网络内 `:${EVIDENCE_READ_PORT}` | `wist-evidence` |
-| `atlas` | 资产与拓扑 API | 仅网络内 `:8080` | `wist-atlas` |
+| `atlas` | 资产与拓扑 API | 写 `${ATLAS_INGEST_BIND_IP}:${ATLAS_INGEST_HOST_PORT}:8080`；读仅网络内 `:8080` | `wist-atlas` |
 | `atlas-web` | 拓扑画布（挂 `/atlas/`） | 仅网络内 `:80` | `wist-atlas-web` |
+| `metrics` | 运行指标（VictoriaMetrics） | `${VM_BIND_IP}:${VM_HOST_PORT}:8428` | `victoriametrics/victoria-metrics` |
 | `evidence-postgres` | 证据索引库 | `${PG_BIND_IP}:${EVIDENCE_PG_HOST_PORT}:5432` | `postgres` |
 | `atlas-postgres` | 资产库 | `${PG_BIND_IP}:${ATLAS_PG_HOST_PORT}:5432` | `postgres` |
 
-**只有 `web` 给浏览器用**；`evidence` 的写端口是唯一需要内网开放的接口（数据面 `http_sink` 直投），
-其余服务都不绑宿主端口。
+**只有 `web` 给浏览器用**；对数据面开放的只有三个写/收端口：
+证据写（`18800`）、资产写（`18801`）、指标（`18428`）。其余服务都不绑宿主端口。
 
 ## 快速开始（docker compose）
 
@@ -104,7 +105,10 @@ curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
 | 变量 | 默认 | 作用 |
 |---|---|---|
 | `WEB_BIND_IP` / `WEB_HOST_PORT` | `127.0.0.1:8088` | 唯一浏览器入口 |
-| `EVIDENCE_SINK_BIND_IP` / `EVIDENCE_SINK_HOST_PORT` | `127.0.0.1:18800` | 数据面写入端口（**唯一需要内网开放的**） |
+| `EVIDENCE_SINK_BIND_IP` / `EVIDENCE_SINK_HOST_PORT` | `127.0.0.1:18800` | 证据写入端口（数据面 `http_sink`） |
+| `ATLAS_INGEST_BIND_IP` / `ATLAS_INGEST_HOST_PORT` | `127.0.0.1:18801` | 资产拓扑写入端口（数据面投 DSNAP） |
+| `VM_BIND_IP` / `VM_HOST_PORT` | `127.0.0.1:18428` | VictoriaMetrics：数据面 remote write + 运维查询 |
+| `ATLAS_PROBE` / `ATLAS_PROBE_INTERVAL_SECS` | `on` / `300` | atlas 写探针（往保留租户写最小 DSNAP） |
 | `EVIDENCE_READ_PORT` | `8443` | 证据读监听（容器内）。**一个来源**：evidence 的 `[read].listen_addr`、compose 健康检查、console 的 `evidence.base_url` 都从它来 |
 | `PG_BIND_IP` / `EVIDENCE_PG_HOST_PORT` / `ATLAS_PG_HOST_PORT` | `127.0.0.1:55434/55435` | 两个 PG（仅供排查） |
 
@@ -114,7 +118,7 @@ curl -H 'x-console-operator: local' http://127.0.0.1:8088/api/health
 | 文件 | 内容 |
 |---|---|
 | `sys/configs/evidence/wist-evidence.toml` | 种子：sink 监听 / 允许的 kind / 索引库 / 对象存储（运行态在 `configs/evidence/`） |
-| `sys/configs/console/console.toml` | 入口身份、到证据服务的租户与敏感度、atlas 探活地址 |
+| `sys/configs/console/console.toml` | 入口身份、到证据服务的租户与敏感度、atlas 读/写地址、VM 地址 |
 | `sys/.wist/sec-value.yml` | `${SEC_...}` 的真值（DB URL、COS 凭据），**不入库** |
 
 - 写端点不校验身份（内网可信）；P1 换成 HTTPS 双向认证；
@@ -180,32 +184,49 @@ docker compose -f sys/docker-compose.yml --env-file .env up -d
 
 ## 给 WarpParse 的写入配置（可直接 copy）
 
-证据库的写端点是 `POST /internal/evidence`，请求体就三字段：
+三个端点和两份配置，都在 [`examples/warp-parse/`](examples/warp-parse/)（详见那里的 README）。
 
-```json
-{ "cust_id": "c-001", "cmd_id": "cmd-...", "content": { "...": "..." } }
-```
-
-`cust_id` 同时就是**租户/分区键**（对象键第一段），所以一个 wparse 可以同时写多个客户。
-认证现在是 `auth = "none"`（内网可信），将来换 HTTPS 双向认证。
-
-现成的两份配置在 [`examples/warp-parse/`](examples/warp-parse/)：
+| 目标 | 端点 | 契约 |
+|---|---|---|
+| 证据 | `POST /internal/evidence` | 三字段 `{cust_id, cmd_id, content}` |
+| 资产拓扑 | `POST /internal/atlas` | 三字段，`content` 是 DSNAP 记录 |
+| 运行指标 | `victoriametrics_sink` → `/api/v1/*` | wparse 自带的 VM sink，不是三字段 |
 
 ```text
-examples/warp-parse/connectors/sink.d/30-evidence_sink.toml      # 只负责 POST
-examples/warp-parse/topology/sinks/business.d/evidence_uplink.toml  # 绑定 OML
+examples/warp-parse/connectors/sink.d/30-evidence_sink.toml
+connectors/sink.d/40-atlas_sink.toml
+topology/sinks/business.d/evidence_uplink.toml
+topology/sinks/business.d/atlas_uplink.toml
+topology/sinks/infra.d/metrics_uplink.toml
 ```
 
-拷进 wparse 工作根，配一个环境变量即可：
+拷进 wparse 工作根，配三个环境变量：
 
 ```bash
-EVIDENCE_SINK_URL=http://<证据服务内网地址>:18800     # EVIDENCE_SINK_BIND_IP / PORT
+EVIDENCE_SINK_URL=http://<证据服务内网地址>:18800      # EVIDENCE_SINK_BIND_IP / PORT
+ATLAS_SINK_URL=http://<atlas 内网地址>:18801           # ATLAS_INGEST_BIND_IP / PORT
+WIST_METRICS_ENDPOINT=http://<本栈内网地址>:18428      # VM_BIND_IP / VM_HOST_PORT
 ```
 
-**关键前提**：连接器不做字段映射，发出去的就是 OML 的输出 —— 所以那个 OML 必须产出
-`cust_id` / `cmd_id` / `content`。
+**关键前提**：连接器不做字段映射，发出去的就是 OML 的输出 —— 所以 OML 必须产出
+`cust_id` / `cmd_id` / `content`；atlas 的 `cust_id` 是 atlas 租户 UUID，不是客户号。
 
-详见 [`examples/warp-parse/README.md`](examples/warp-parse/README.md)。
+### 运行指标怎么接
+
+本栈内置一个 VictoriaMetrics，数据面用 wparse 自带的 `victoriametrics_sink` 推过来
+（与 `wist-gateway-stack` 里 `infra.d/monitor.toml` 同一做法）：
+
+```toml
+[[sink_group.sinks]]
+name = "metrics_vmetrics_sink"
+connect = "victoriametrics_sink"
+
+[sink_group.sinks.params]
+endpoint = "${WIST_METRICS_ENDPOINT}"   # http://<console-stack 地址>:18428
+```
+
+星象台的「接口可用性」页会多一条「运行指标存储」（探 VM 的 `/health`）。
+指标**不跨栈聚合**：网关栈自己的 VM 与自己本栈的 VM 是两份数据，谁写谁查。
 
 ## 容器用户与挂载权限
 

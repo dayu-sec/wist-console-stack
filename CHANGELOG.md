@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 0.1.15 · 2026-11-05
+
+- **证据 / 资产两条写入链路对齐成同一个契约**：`{cust_id, cmd_id, content}`，无认证。
+  atlas 新增 `POST /internal/atlas`（`content` 是 DSNAP 记录），宿主端口
+  `${ATLAS_INGEST_BIND_IP}:${ATLAS_INGEST_HOST_PORT}`（默认 18801）。
+- **集成 VictoriaMetrics**（`metrics` 服务，默认宿主 18428）：数据面用 wparse 自带的
+  `victoriametrics_sink` 推进来，星象台的「接口可用性」多一条「运行指标存储」。
+  做法与 `wist-gateway-stack` 一致（同一套镜像与 base 参数）。
+- atlas 开启**写探针**（`ATLAS_PROBE`，默认 on，5 分钟一条）：往保留租户
+  `00000000-0000-4000-8000-00000000a7a5` 写一份最小快照，`/healthz` 带 `probe` 块；
+  不变的是图谱不脏（固定 `snap_id`，同一次 upsert）。
+- 示例配置多了两个文件：`connectors/sink.d/40-atlas_sink.toml`、
+  `topology/sinks/business.d/atlas_uplink.toml`、`topology/sinks/infra.d/metrics_uplink.toml`。
+- console `v0.1.10-alpha`：`[metrics] base_url` 探活、`[atlas] sink_url` 接入示例。
+
 ## 0.1.14 · 2026-11-05
 
 - **证据服务的写入契约改成三字段** `{cust_id, cmd_id, content}`（evidence `v0.1.12-alpha`）：
