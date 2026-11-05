@@ -104,7 +104,9 @@ TLS 在 `web` 容器里终结（80 只给健康检查、不发布到宿主）。
    ```
 
 2. 在 cred 页面建「认证系统」**`wist-console`**（角色至少 `read`），签发一张**接入券**（`wot_…`）；
-   同时拿到部署生成的 **setup code**（栈的 `.wist/sec-value.yml` → `CONSOLE_PEER_SETUP_CODE`）。
+   同时拿到 **setup code**：`bash sys/scripts/init-stack.sh` 会幂等生成它并写进
+   `sys/.wist/sec-value.yml` → `SEC_CONSOLE_PEER_SETUP_CODE`（0640；没生成过就读不到，
+   现场也不要自己编一个弱口令）。
 
 3. 起栈（`gops run start`），打开 **<https://127.0.0.1:8088/__init>**，填 setup code + 券 → 提交。
 
@@ -130,6 +132,17 @@ TLS 在 `web` 容器里终结（80 只给健康检查、不发布到宿主）。
 | `bundle_rejected` / `enroll_rejected` | cred 拒绝：券已用/过期，或认证系统名字不是 `wist-console` |
 
 > 想重来：删掉 `identity/console/cred/{server.crt,server.key,client-ca.pem}` 后重启。
+
+### 升级后配置没生效？先看 `init-stack.sh` 的提示
+
+`sys/configs/` 是**种子**，脚本只补缺、不覆盖现场改动 —— 好处是现场改的端口/域名不会被冲掉，
+代价是“栈升了，但运行态那份还是旧的”（典型表现：nginx 少了 `/__init`，页面直接掉到 SPA）。
+
+所以脚本会逐文件比对并列出差异。确认可以跟种子一致时：
+
+```bash
+FORCE_CONFIGS=1 bash sys/scripts/init-stack.sh   # 用种子覆盖 configs/ 下的差异
+```
 
 ### 接入 wist-cred（旧路径：join.sh）
 

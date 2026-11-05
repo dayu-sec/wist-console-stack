@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 0.1.24 · 2026-11-05
+
+真机起栈时踩的三个坑，都补上了：
+
+- **console 容器缺 `CREDENTIALS_HOST_PORT`**：模板里的收数地址是
+  `https://${CONSOLE_ADVERTISE_HOST}:${CREDENTIALS_HOST_PORT}/…`，变量不进容器就展不开，
+  启动期直接拒（`unresolved environment variable`）—— fail-closed 是对的，但栈得把变量给足。
+- **`SEC_CONSOLE_PEER_SETUP_CODE` 没有来源**：`init-stack.sh` 现在幂等生成
+  （`crp_` + 32 hex，写入 `.wist/sec-value.yml`，0640）并提示去 `/__init` 填；
+  不自动生成就只能自己编，那必然是弱口令。
+- **种子 vs 运行态静默偏差**：`sys/configs/` 只补缺不覆盖，于是“栈升了、nginx 还是旧的”
+  表现为 `/__init` 直接掉回 SPA。现在逐文件比对并列出差异，
+  `FORCE_CONFIGS=1` 才覆盖（现场改过的端口/域名不会被默默冲掉）。
+
 ## 0.1.23 · 2026-11-05
 
 - 跟版 `console v0.2.1-alpha`：修了 0.1.22 里那两处「配了但没生效」——

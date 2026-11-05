@@ -173,6 +173,9 @@ services:
       CONSOLE_CRED_CA_FILE: ${CONSOLE_CRED_CA_FILE}
       CONSOLE_CRED_INSECURE_TLS: ${CONSOLE_CRED_INSECURE_TLS}
       CONSOLE_REQUIRE_CRED_SIGNATURE: ${CONSOLE_REQUIRE_CRED_SIGNATURE}
+      # 收数地址里的端口也是模板里的 `${CREDENTIALS_HOST_PORT}` —— 不传进来就展不开，
+      # 启动期会拒（`unresolved environment variable`）。端口只有一个来源：ports 映射那条。
+      CREDENTIALS_HOST_PORT: ${CREDENTIALS_HOST_PORT}
       TZ: ${TZ}
     ports:
       # 凭据收数监听（mTLS）：`wist-cred` 推摘要过来。没有它就只能用已登记的旧凭据。

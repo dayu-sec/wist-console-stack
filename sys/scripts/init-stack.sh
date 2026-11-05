@@ -45,6 +45,26 @@ copy_missing "${STACK_ROOT}/sys/configs/console" "${STACK_ROOT}/configs/console"
 copy_missing "${STACK_ROOT}/sys/configs/web" "${STACK_ROOT}/configs/web"
 note "seed copied (existing files kept)"
 
+# 2′) 种子与运行态不一致：**列出来**。只补缺的代价是「栈升了，但现场那份配置还是旧的」，
+#     表现成「新功能配了却没生效」（比如 nginx 少了 `/__init` 那条 location）。
+#     真要跟上种子：FORCE_CONFIGS=1 bash sys/scripts/init-stack.sh
+for sub in evidence console web; do
+  seed_dir="${STACK_ROOT}/sys/configs/${sub}"
+  [ -d "${seed_dir}" ] || continue
+  while IFS= read -r rel; do
+    src="${seed_dir}/${rel}"
+    dst="${STACK_ROOT}/configs/${sub}/${rel}"
+    [ -f "${dst}" ] || continue
+    cmp -s "${src}" "${dst}" && continue
+    if [ "${FORCE_CONFIGS:-0}" = "1" ]; then
+      cp "${src}" "${dst}"
+      note "  ↑ 已用种子覆盖 configs/${sub}/${rel}"
+    else
+      note "  ⚠ configs/${sub}/${rel} 与种子不同：合并后再重启（或 FORCE_CONFIGS=1 覆盖）"
+    fi
+  done < <(cd "${seed_dir}" && find . -type f | sed 's|^\./||')
+done
+
 # 3) 权限：配置 0644（不含密钥）；密钥目录 0700，由现场放 sec-value.yml（0640）
 chmod 0755 "${STACK_ROOT}/configs" "${STACK_ROOT}/configs/evidence" "${STACK_ROOT}/configs/console" "${STACK_ROOT}/configs/web"
 find "${STACK_ROOT}/configs" -type f -name '*.toml' -exec chmod 0644 {} +
@@ -53,6 +73,18 @@ if [ -f "${STACK_ROOT}/.wist/sec-value.yml" ]; then
   chmod 0640 "${STACK_ROOT}/.wist/sec-value.yml"
 else
   note "缺少 ${STACK_ROOT}/.wist/sec-value.yml：至少需要 SEC_EVIDENCE_DB_URL"
+fi
+
+# 自注册的 setup code：**部署生成**的秘密，保护“谁能给这台机器指定 cred 地址”。
+# 它不能有默认值（那等于没有），也不该让人现编 —— 幂等生成，0640。
+SEC_FILE="${STACK_ROOT}/.wist/sec-value.yml"
+if [ -f "${SEC_FILE}" ] && ! grep -q '^SEC_CONSOLE_PEER_SETUP_CODE:' "${SEC_FILE}"; then
+  setup_code="crp_$(openssl rand -hex 16 2>/dev/null || echo "$(date +%s)$$" | shasum -a 256 | cut -c1-32)"
+  printf 'SEC_CONSOLE_PEER_SETUP_CODE: %s\n' "${setup_code}" >> "${SEC_FILE}"
+  chmod 0640 "${SEC_FILE}"
+  note "已生成自注册 setup code（写入 .wist/sec-value.yml，0640）"
+  note "  → /__init 页面上要填这个；接入券（wot_…）由 cred 页面另发"
+  note "  → 现在就要用的话：  echo ${setup_code}"
 fi
 
 # 4) 凭据接入材料：**两种来源**，落到同一个目录、同一套文件名
