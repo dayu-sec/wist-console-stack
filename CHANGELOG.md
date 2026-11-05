@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.1.27 · 2026-11-06
+
+- 跟版 `console v0.3.1-alpha` + `console-web v0.1.14-alpha`。
+- **接入配置简化**：证据 / 资产拓扑的示例不再新增 connector，直接复用现成的 `http_sink`
+  （只覆盖 endpoint / fmt / headers），示例从五个文件减到三个。
+- 「数据面接入」页按证据 / Atlas / 运行指标分开；顶部状态条新增「退出」。
+
 ## 0.1.26 · 2026-11-05
 
 - 修 0.1.25 的一个手误：跟版 `console-web` 时把 `EVIDENCE_IMAGE_TAG` 也从
