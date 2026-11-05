@@ -1,0 +1,35 @@
+# 星象台的 cred 接入配置（**栈渲染**，覆盖 `identity/console/cred/cred.toml`）。
+#
+# 三种段，三种归属：
+#   [verify]  本服务的决定（认谁、能验什么）
+#   [init]    首次注册的授权：setup code 由部署生成（密钥文件），一次性券由 cred 页面签发
+#   [publish] 本机在 cred 眼里的收数地址：**部署事实**，由栈按端口映射渲染
+#
+# [identity] 段故意不写：它由注册产物决定（server.crt / server.key / client-ca.pem 就在
+# 本文件同一目录），由 wist-cred-peer 在初始化成功后写入。
+#
+# 切换存储 / 信任锚靠**变量**，不改本文件：
+#   CONSOLE_ADVERTISE_HOST     收数地址的主机名（= 证书 SAN；不填启动就失败）
+#   CONSOLE_CRED_URL           cred 注册入口（留空则初始化页上填）
+#   CONSOLE_CRED_CA_FILE       入口自签时的信任锚（容器内路径）
+#   CONSOLE_CRED_INSECURE_TLS  明确跳过入口证书校验（与 ca_file 互斥）
+
+[verify]
+audience = "wist-console"
+allowed_issuers = ["wist-cred"]
+roles = ["read"]
+# 签发方公钥在注册后由 cred 下发到同目录（issuer-signing.pub）；没下发前不能开验签。
+# require_signature 保持默认（false）；cred 侧配了签名钥时，接入后可以手工打开。
+
+[init]
+# 从密钥文件展开（`WIST_CONSOLE_SEC_FILE` → `.wist/sec-value.yml` 的 console_peer_setup_code）。
+setup_code = "${SEC_CONSOLE_PEER_SETUP_CODE}"
+# cred 的注册入口；留空 = 初始化页上让操作者填。
+cred_url = "${CONSOLE_CRED_URL}"
+# 信任锚：入口自签时填它的 CA（容器内路径）。留空 = 不配（那就要开 insecure_tls）。
+ca_file = "${CONSOLE_CRED_CA_FILE}"
+insecure_tls = ${CONSOLE_CRED_INSECURE_TLS}
+
+[publish]
+# cred 往这里推摘要、往这里探活。主机名必须等于证书 SAN（同一个变量渲染）。
+endpoint = "https://${CONSOLE_ADVERTISE_HOST}:${CREDENTIALS_HOST_PORT}/api/v1/internal/credentials"

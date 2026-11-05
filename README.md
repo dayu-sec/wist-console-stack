@@ -85,42 +85,75 @@ TLS 在 `web` 容器里终结（80 只给健康检查、不发布到宿主）。
 - 摘要由 `wist-cred` 通过 **mTLS** 推到 `console` 的 3103（宿主 `${CREDENTIALS_BIND_IP}:${CREDENTIALS_HOST_PORT}`），
   本地只落 sha256，不进 PG、重启不丢。
 
-### 接入 wist-cred（一次性）
+### 接入 wist-cred（一次性，P1 自注册）
 
-1. 在 cred 页面建一个「认证系统」，名字必须是 **`wist-console`**，角色至少勾 **`read`**；
-2. 把 `CREDENTIALS_BIND_IP` 改成 **cred 能到达的地址**（cred 在别的机器/容器里时，
-   `127.0.0.1` 只会把收数端口藏在回环里，cred 永远推不进来）：
+默认路径：**console 自己注册**。栈渲染的 `configs/console/cred.toml` 带 `[init]`，
+首次启动只开 `/__init`，注册材料由服务自己写进 `identity/console/cred/`。
 
-   ```bash
-   # values/wist-console-stack/sys_value.yml 或直接改 .env
-   CREDENTIALS_BIND_IP=0.0.0.0      # 或本机内网网卡 IP
-   gops sys localize
+1. 先把两个部署事实写进 `values/wist-console-stack/sys_value.yml`（或 `.env`）：
+
+   ```yaml
+   # 收数地址的主机名 = 证书 SAN = cred 拨号的地址。**不填就启动失败**（有意如此）。
+   CONSOLE_ADVERTISE_HOST: console.dev.wist.lab
+   # cred 的注册入口（留空 = 初始化页上填）。
+   CONSOLE_CRED_URL: https://cred.dev.wist.lab:4444
+   # cred 在别的机器/容器里时，收数监听不能只绑回环。
+   CREDENTIALS_BIND_IP: 0.0.0.0
+   # 入口是自签证书：给它 CA；拿不到 CA 时才用 CONSOLE_CRED_INSECURE_TLS: 'true'。
+   CONSOLE_CRED_CA_FILE: /cred/cred-entry-ca.pem
    ```
 
-3. 在**本栈根目录**执行接入命令 —— 三个参数都必须给全：
+2. 在 cred 页面建「认证系统」**`wist-console`**（角色至少 `read`），签发一张**接入券**（`wot_…`）；
+   同时拿到部署生成的 **setup code**（栈的 `.wist/sec-value.yml` → `CONSOLE_PEER_SETUP_CODE`）。
+
+3. 起栈（`gops run start`），打开 **<https://127.0.0.1:8088/__init>**，填 setup code + 券 → 提交。
+
+   成功后响应里有：
+
+   | 字段 | 用途 |
+   |---|---|
+   | `written` | 三件材料的落点 |
+   | `cred_certificate_sha256` | 入口证书指纹，与 `openssl s_client … -fingerprint -sha256` 对照 |
+   | `restart_required: false` | **不需要重启**：收数监听材料齐了自己起来 |
+
+4. `curl -k -H 'Authorization: Bearer wcr_…' https://127.0.0.1:8088/api/health` 应看到
+   `凭据：已登记 N 条；收数监听在线`。
+
+失败了怎么办（初始化页会把错误码写在响应里）：
+
+| 错误码 | 含义 / 怎么修 |
+|---|---|
+| `setup_code_invalid` | 页面上的 setup code 与 `sec-value.yml` 里的不一致（403，不落任何材料） |
+| `cred_unreachable` + `certificate` | 入口自签且没配信任锚：设 `CONSOLE_CRED_CA_FILE`，或明确开 `CONSOLE_CRED_INSECURE_TLS` 后再核对指纹 |
+| `publish_endpoint_invalid` | `CONSOLE_ADVERTISE_HOST` 是空（地址渲染成 `https://:18802/…`）；同时 console 启动期就会拒 |
+| `host_mismatch` | 页面上手填的证书主机名与 `[publish].endpoint` 的主机名不一致（cred 按后者拨号） |
+| `bundle_rejected` / `enroll_rejected` | cred 拒绝：券已用/过期，或认证系统名字不是 `wist-console` |
+
+> 想重来：删掉 `identity/console/cred/{server.crt,server.key,client-ca.pem}` 后重启。
+
+### 接入 wist-cred（旧路径：join.sh）
+
+在没有 `[init]` 的部署（例如走入口认证、或 cred 侧只支持接入命令）时仍可用：
 
 ```bash
+bash sys/scripts/init-stack.sh                       # 先备料（目录 / sec-value / web TLS）
 curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- \
   --dir './identity/console/cred' \
   --host "$(hostname -f)" \
-  --advertise "https://$(hostname -f):${CREDENTIALS_HOST_PORT:-18802}/api/v1/internal/credentials" \
   --roles admin,read
 ```
 
 | 参数 | 不给会怎样 |
 |---|---|
-| `--dir` | 材料落到 `./wist-cred/...` 或被护栏拦下；**给错目录**最隐蔽——一切看起来正常，但本服务读不到 |
-| `--advertise` | cred 的 peer 记录里**没有 endpoint** → 不推送、不心跳，`peers.json` 里那条像个「已注册」的空壳 |
+| `--dir` | 材料落到别处；**给错目录**最隐蔽——一切看起来正常，但本服务读不到 |
 | `--host` | 证书 SAN 用本机名；cred 用别的名字连过来会证书校验失败 |
 | `--roles` | 从没登记过角色 → 发不出凭据（`400 roles_not_registered`） |
 
-> `--advertise` 的地址**要带 `/api/v1/internal/credentials`**（cred ≥ 0.4.12 会自动补；
-> 旧版本漏了就是「心跳绿、推送全 404」）。
+> 收数地址**不再由命令行给**（`--advertise` 已删除）：它是部署事实，只有三个来源 ——
+> 栈渲染的 `[publish].endpoint`、cred 控制台登记、或自注册时随券上报。
 
-4. `bash sys/scripts/init-stack.sh` 会校验材料（audience 是不是 `wist-console`、
-   有没有 `read` 角色、证书 SAN 覆不覆盖本机名），然后 `gops sys perms --apply` + `gops run start`。
-
-没有 `identity/console/cred/cred.toml` 时 `console` 会**拒启**（fail-closed，不是静默降级）。
+`identity/` 下的材料（含 `server.key`）**不进版本库**：自注册 / join.sh / `init-web-tls.sh`
+各自生成。
 
 ### 只想用入口认证？
 
@@ -156,6 +189,11 @@ curl -k -H 'x-console-operator: zhangsan' https://127.0.0.1:8088/api/health
 | `ATLAS_PROBE` / `ATLAS_PROBE_INTERVAL_SECS` | `on` / `300` | atlas 写探针（往保留租户写最小 DSNAP） |
 | `EVIDENCE_READ_PORT` | `8443` | 证据读监听（容器内）。**一个来源**：evidence 的 `[read].listen_addr`、compose 健康检查、console 的 `evidence.base_url` 都从它来 |
 | `PG_BIND_IP` / `EVIDENCE_PG_HOST_PORT` / `ATLAS_PG_HOST_PORT` | `127.0.0.1:55434/55435` | 两个 PG（仅供排查） |
+| `CREDENTIALS_BIND_IP` / `CREDENTIALS_HOST_PORT` | `0.0.0.0:18802` | cred 推送摘要 / 心跳的 mTLS 端口 |
+| `CONSOLE_ADVERTISE_HOST` | 空（**必填**） | 收数地址的主机名 = 证书 SAN = cred 拨号地址；不填 console 启动期就拒 |
+| `CONSOLE_CRED_URL` | 空 | cred 注册入口；留空则由初始化页填 |
+| `CONSOLE_CRED_CA_FILE` | 空 | 入口自签时的信任锚（容器内路径，如 `/cred/cred-entry-ca.pem`） |
+| `CONSOLE_CRED_INSECURE_TLS` | `false` | 明确跳过入口证书校验（与 `CA_FILE` 互斥；开了就必须核对指纹） |
 
 > 改 `EVIDENCE_READ_PORT` 后只需 `gops sys localize && gops run start`；配置文件里写的是
 > `listen_addr = "0.0.0.0:${EVIDENCE_READ_PORT}"`，不要再把端口写死回 TOML。

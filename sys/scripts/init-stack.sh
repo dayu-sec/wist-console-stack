@@ -55,28 +55,34 @@ else
   note "缺少 ${STACK_ROOT}/.wist/sec-value.yml：至少需要 SEC_EVIDENCE_DB_URL"
 fi
 
-# 4) 凭据接入材料：没有它 console **起不来**（`auth.mode = cred` 是 fail-closed）。
-#    目录必须先存在：compose 把它只读挂到 `/etc/wist-console/cred`，源目录缺失时
-#    docker 会尝试在只读的 /etc/wist-console 里建挂载点，container 直接起不来。
+# 4) 凭据接入材料：**两种来源**，落到同一个目录、同一套文件名
+#    a) 自注册（默认）：`configs/console/cred.toml` 带 `[init]`，首次启动只开 `/__init`，
+#       三件材料由服务自己写进 `identity/console/cred/`；
+#    b) 接入命令（join.sh）预先写好三件材料（它写的 cred.toml 会让栈渲染的那份覆盖 ——
+#       `[verify]` 本来就应该由栈决定）。
+#    目录必须先存在：compose 把它可写挂到 `/cred`，源目录缺失时 docker 会建一个 root 属主的目录。
 mkdir -p "${STACK_ROOT}/identity/console/cred"
 CRED_DIR="${STACK_ROOT}/identity/console/cred"
-if [ -f "${CRED_DIR}/cred.toml" ]; then
-  # 容器以 uid 10001 读这份材料（server.key 由接入命令写成 0600），
+RENDERED_CRED="${STACK_ROOT}/configs/console/cred.toml"
+if [ -f "${CRED_DIR}/server.crt" ] && [ -f "${CRED_DIR}/server.key" ]; then
+  # 容器以 uid 10001 读这份材料（server.key 由接入命令/自注册写成 0600），
   # 所以**必须**对齐属主/权限：Linux 上跑 `gops sys perms --apply`。
   note "cred materials: ${CRED_DIR}"
   note '  → 记得跑 gops sys perms --apply（容器以 uid 10001 读 server.key）'
 
   # 材料是不是这个服务的？接入命令可以在任何 --dir 下跑，放错了目录会表现为
   # 「一切都对，但永远 401」—— 所以这里对 audience 和角色各校一次。
-  audience="$(sed -n 's/^audience[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' "${CRED_DIR}/cred.toml" | head -1)"
-  if [ "${audience}" != "wist-console" ]; then
-    note "  ⚠ cred.toml 的 audience 是 \"${audience:-<空>}\"，不是 wist-console —— 这份材料属于别的认证系统"
-  fi
-  if ! grep -q '"read"' "${CRED_DIR}/cred.toml"; then
-    note "  ⚠ cred.toml 的 [verify].roles 里没有 read：签发出来的令牌一律 403"
+  if [ -f "${CRED_DIR}/cred.toml" ]; then
+    audience="$(sed -n 's/^audience[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' "${CRED_DIR}/cred.toml" | head -1)"
+    if [ "${audience}" != "wist-console" ]; then
+      note "  ⚠ cred.toml 的 audience 是 \"${audience:-<空>}\"，不是 wist-console —— 这份材料属于别的认证系统"
+    fi
+    if ! grep -q '"read"' "${CRED_DIR}/cred.toml"; then
+      note "  ⚠ cred.toml 的 [verify].roles 里没有 read：签发出来的令牌一律 403"
+    fi
   fi
   # 证书 SAN 必须覆盖 cred 连的那个名字（接入命令的 --host）。
-  if [ -f "${SCRIPT_DIR}/lib/tls-san.sh" ] && [ -f "${CRED_DIR}/server.crt" ]; then
+  if [ -f "${SCRIPT_DIR}/lib/tls-san.sh" ]; then
     # shellcheck source=lib/tls-san.sh
     . "${SCRIPT_DIR}/lib/tls-san.sh"
     for name in "$(hostname)" "$(hostname -s 2>/dev/null || hostname)"; do
@@ -86,9 +92,17 @@ if [ -f "${CRED_DIR}/cred.toml" ]; then
     done
   fi
 else
-  note "⚠ 缺少 ${STACK_ROOT}/identity/console/cred/cred.toml —— console 会拒启。"
-  note "  先在 cred 页面建「认证系统」wist-console，再在本机执行接入命令："
-  note "  curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/console/cred'"
+  # 没材料：只要栈渲染的 cred.toml 带 `[init]`，就是正常的自注册路径。
+  if [ -f "${RENDERED_CRED}" ] && grep -q '^\[init\]' "${RENDERED_CRED}"; then
+    note "cred materials: 待自注册（${CRED_DIR} 还没有 server.crt / server.key / client-ca.pem）"
+    note "  → 起栈后打开 https://${WEB_DOMAIN:-localhost}:${WEB_HOST_PORT:-8088}/__init"
+    note "    填 setup code + 接入券；材料写进该目录，收数监听自动起来（无需重启）"
+    note "  → CONSOLE_ADVERTISE_HOST 必须是真主机名，否则 console 启动期就拒"
+  else
+    note "⚠ ${RENDERED_CRED} 没有 [init]，也没有接入命令写的材料"
+    note "  → console 会拒启。先让栈渲染出 [init]（设 CONSOLE_ADVERTISE_HOST + CONSOLE_CRED_URL），"
+    note "    或者用接入命令写材料：curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/console/cred' --host <本机名>"
+  fi
 fi
 
 # 5) 前端 TLS：唯一浏览器入口在 web 容器里终结，没有证书 nginx 起不来。

@@ -1,0 +1,3 @@
+# web 入口的 TLS 材料由 `sys/scripts/init-web-tls.sh` 生成（含私钥），不进版本库。
+*
+!.gitignore

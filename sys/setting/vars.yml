@@ -54,6 +54,26 @@ system:
   - name: CREDENTIALS_HOST_PORT
     value: 18802
 
+  # ── 自注册（首次启动时向 cred 登记自己）────────────────────────────
+  #
+  # cred 的注册入口。留空 = 初始化页上让操作者填；预置后页面只收券。
+  # 例：`https://cred.dev.wist.lab:4444`
+  - name: CONSOLE_CRED_URL
+    value: ''
+  # 本机在 cred 眼里的主机名：**必须等于证书 SAN**，也是 cred 拨号的地址。
+  # 不填 = 启动就失败（地址渲染成 `https://:18802/…`，签不出可用证书）——有意如此，
+  # 不让人拿到一张签给 `""` 或 `localhost` 的证书。例：`console.dev.wist.lab` 或内网 DNS 名。
+  - name: CONSOLE_ADVERTISE_HOST
+    value: ''
+  # cred 入口的信任锚（入口自签时给它的 CA，容器内路径）。
+  # 留空 = 不配锚；此时必须把 CONSOLE_CRED_INSECURE_TLS 打开才注册得成功。
+  - name: CONSOLE_CRED_CA_FILE
+    value: ''
+  # 明确跳过入口证书校验（自签且拿不到 CA 时用）。开了就必须核对初始化页返回的
+  # `cred_certificate_sha256` 与入口证书指纹。用完建议切回 ca_file。
+  - name: CONSOLE_CRED_INSECURE_TLS
+    value: 'false'
+
   # 证据读端口（容器内，不绑宿主端口，只在 compose 网络里）。
   # 一个来源：evidence 的 `[read].listen_addr`、compose 健康检查、console 的 `base_url`
   # 都从这里来；改这里就全改。
