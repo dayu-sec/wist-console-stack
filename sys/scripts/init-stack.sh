@@ -33,7 +33,11 @@ mkdir -p "${STACK_ROOT}/configs/evidence" "${STACK_ROOT}/configs/console" "${STA
 # 必须先建：否则 compose 会自己建一个 root:root 的目录，容器写不进去。
 mkdir -p "${STACK_ROOT}/data/evidence-objects"
 chmod 0777 "${STACK_ROOT}/data/evidence-objects"
-note "runtime dirs: ${STACK_ROOT}/configs, ${STACK_ROOT}/.wist, ${STACK_ROOT}/data/evidence-objects"
+# 凭据摘要表（`store_path`）：只存 sha256，验证侧私有状态。
+# 容器内是 uid 10001，与证据正文同理给到 0777（仅开发/测试栈）。
+mkdir -p "${STACK_ROOT}/data/console"
+chmod 0777 "${STACK_ROOT}/data/console"
+note "runtime dirs: ${STACK_ROOT}/configs, ${STACK_ROOT}/.wist, ${STACK_ROOT}/data/{evidence-objects,console}"
 
 # 2) 种子 -> 运行态（只补缺）
 copy_missing "${STACK_ROOT}/sys/configs/evidence" "${STACK_ROOT}/configs/evidence"
@@ -48,6 +52,16 @@ if [ -f "${STACK_ROOT}/.wist/sec-value.yml" ]; then
   chmod 0640 "${STACK_ROOT}/.wist/sec-value.yml"
 else
   note "缺少 ${STACK_ROOT}/.wist/sec-value.yml：至少需要 SEC_EVIDENCE_DB_URL"
+fi
+
+# 4) 凭据接入材料：没有它 console **起不来**（`auth.mode = cred` 是 fail-closed）。
+if [ -f "${STACK_ROOT}/identity/console/cred/cred.toml" ]; then
+  chmod 0600 "${STACK_ROOT}/identity/console/cred/server.key" 2>/dev/null || true
+  note "cred materials: ${STACK_ROOT}/identity/console/cred"
+else
+  note "⚠ 缺少 ${STACK_ROOT}/identity/console/cred/cred.toml —— console 会拒启。"
+  note "  先在 cred 页面建「认证系统」wist-console，再在本机执行接入命令："
+  note "  curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/console/cred'"
 fi
 
 note "done"

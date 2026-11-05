@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.1.17 · 2026-11-05
+
+- **认证改成接 `wist-cred`（`auth.mode = "cred"`），删掉 0.1.16 的 `dev` 直通**。
+  `dev` 是个安全问题：计算区界面默认谁都能进，且审计里没有操作员身份。
+  现在浏览器要用 `wcr_…` 访问令牌，BFF 用 `wist-cred-peer` 的摘要表验（401/403 分开）。
+- `console` 新增 mTLS 收数端口 `${CREDENTIALS_BIND_IP}:${CREDENTIALS_HOST_PORT}`（默认 18802），
+  材料挂 `./identity/console/cred`（由接入命令写入），摘要表落 `./data/console/`。
+- `init-stack.sh` 会建 `data/console` 并检查 `identity/console/cred/cred.toml`：
+  缺材料时**明确提示**（console 会拒启，不是静默降级）。
+- console `v0.1.11-alpha` / console-web `v0.1.10-alpha`。
+
 ## 0.1.16 · 2026-11-05
 
 - **修：浏览器直接打开时会得到 `401 console_operator_missing`**。根因是种子里的

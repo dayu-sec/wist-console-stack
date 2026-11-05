@@ -43,6 +43,13 @@ system:
   - name: EVIDENCE_SINK_HOST_PORT
     value: 18800
 
+  # 凭据收数监听（console 的 mTLS）：`wist-cred` 推摘要到这里。
+  # 默认只绑回环；cred 在别的机器时改成内网地址（并确保证书 SAN 对得上）。
+  - name: CREDENTIALS_BIND_IP
+    value: 127.0.0.1
+  - name: CREDENTIALS_HOST_PORT
+    value: 18802
+
   # 证据读端口（容器内，不绑宿主端口，只在 compose 网络里）。
   # 一个来源：evidence 的 `[read].listen_addr`、compose 健康检查、console 的 `base_url`
   # 都从这里来；改这里就全改。

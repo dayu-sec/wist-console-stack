@@ -167,9 +167,16 @@ services:
       # 证据读端口：`console.toml` 的 `evidence.base_url` 里是 `${EVIDENCE_READ_PORT}`。
       EVIDENCE_READ_PORT: ${EVIDENCE_READ_PORT}
       TZ: ${TZ}
+    ports:
+      # 凭据收数监听（mTLS）：`wist-cred` 推摘要过来。没有它就只能用已登记的旧凭据。
+      - "${CREDENTIALS_BIND_IP}:${CREDENTIALS_HOST_PORT}:3103"
     volumes:
       - ./configs/console:/etc/wist-console:ro
       - ./.wist:/sec:ro
+      # cred 接入材料（cred.toml + 服务器证书/私钥 + CA-I）：由接入命令写入，只读挂载。
+      - ./identity/console:/etc/wist-console/cred:ro
+      # 摘要表（只存 sha256）：验证侧私有状态，重启不丢、不进 PG。
+      - ./data/console:/var/lib/wist-console
     healthcheck:
       test: ["CMD", "/bin/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 10s

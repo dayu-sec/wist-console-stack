@@ -47,13 +47,11 @@ docker compose --project-directory . -f sys/docker-compose.yml --env-file .env u
 #    http://127.0.0.1:8088/
 ```
 
-入口默认是本机直开：`console` 配的是 `auth.mode = "dev"`，浏览器不需要任何头。
-**上生产前必须切回 `ingress`**（见下面「本机访问」），并在最前面放 VPN / 堡垒机 / 反代
-注入 `x-console-operator`。
+入口要**访问令牌**：`console` 配的是 `auth.mode = "cred"`，令牌由 `wist-cred` 签发。
+没有令牌就没有「匿名打开」这一档 —— 先把本栈接入凭据中心（见下面「接入 wisst-cred」）。
 
 ```bash
-curl http://127.0.0.1:8088/api/health          # dev：直接能用
-curl -H 'x-console-operator: local' ...       # ingress：入口注入的头
+curl -H 'Authorization: Bearer wcr_…' http://127.0.0.1:8088/api/health
 ```
 
 ## 快速开始（gops）
@@ -74,24 +72,35 @@ gops run start
 
 浏览器入口：**<http://127.0.0.1:8088/>**（`WEB_BIND_IP` / `WEB_HOST_PORT` 可改）。
 
-默认 `console` 是 **`dev`** 模式：`WEB_BIND_IP` 默认只绑回环（127.0.0.1），
-所以浏览器直接打开就能用，不需要任何头。
+`console` 是 **`cred`** 模式（默认，也是唯一推荐）：
 
-**把 `WEB_BIND_IP` 改成非回环地址（现场 / 共享网络）之前，先切 `ingress`**：
+- 浏览器打开页面时会要求粘贴访问令牌（`wcr_…`），令牌只存在 `sessionStorage`；
+- BFF 用 `wist-cred-peer` 的摘要表验：没带 → 401 `console_credential_missing`，
+  不认识 / 过期 / 撤销 → 401 `console_credential_invalid`，角色不够 → 403 `console_role_required`；
+- 摘要由 `wist-cred` 通过 **mTLS** 推到 `console` 的 3103（宿主 `${CREDENTIALS_BIND_IP}:${CREDENTIALS_HOST_PORT}`），
+  本地只落 sha256，不进 PG、重启不丢。
+
+### 接入 wist-cred（一次性）
+
+1. 在 cred 页面建一个「认证系统」，名字必须是 **`wist-console`**，角色至少勾 **`read`**；
+2. 拿到接入命令，在本栈根目录执行：
 
 ```bash
-# sys/configs/console/console.toml 是种子；现场改运行态 configs/console/console.toml
-mode = "ingress"
-# 然后入口必须注入操作员身份，否则 /api/* 一律 401 console_operator_missing
-curl -H 'x-console-operator: zhangsan' http://127.0.0.1:8088/api/health
+curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/console/cred'
 ```
 
-为什么默认是 `dev` 而不是 `ingress`：本栈的唯一浏览器入口只绑回环，等价于「只有本机能进」；
-而 `ingress` 在没有反代的机器上会让页面整个不可用（`console_operator_missing`）。
-宁可默认能用，也不要默认「看起来能开、其实每个接口都 401」。
+3. `bash sys/scripts/init-stack.sh`（补 `data/console` 等运行态目录），再 `gops run start`。
 
-> 审计身份：`dev` 模式没有操作员身份（审计日志里那一条为空）；
-> 需要「谁看的 / 谁导的」可追溯，就必须切 `ingress` 并在入口做认证。
+没有 `identity/console/cred/cred.toml` 时 `console` 会**拒启**（fail-closed，不是静默降级）。
+
+### 只想用入口认证？
+
+把 `auth.mode` 改成 `ingress`（运行态 `configs/console/console.toml`），
+入口（VPN / 堡垒机 / 反代）认证后注入 `x-console-operator` 即可：
+
+```bash
+curl -H 'x-console-operator: zhangsan' http://127.0.0.1:8088/api/health
+```
 
 页面：
 
