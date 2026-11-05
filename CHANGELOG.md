@@ -1,6 +1,16 @@
 # CHANGELOG
 
-## 0.1.27 · 2026-11-06
+## 0.1.28 · 2026-11-05
+
+- 跟版三个**只为同步 TCR 而重发**的镜像（代码零变更）：
+  `EVIDENCE_IMAGE_TAG` → `v0.1.13-alpha`、`ATLAS_IMAGE_TAG` → `v0.3.3`、
+  `ATLAS_WEB_IMAGE_TAG` → `v0.1.3-alpha`。
+- 背景：它们的旧 tag 早于 release 工作流增加 TCR 推送，所以 TCR 上根本没有——
+  栈切到 `CONSOLE_REGISTRY=/ATLAS_REGISTRY=dy-sec.tencentcloudcr.com/cloud` 时
+  就是 `manifest unknown`。现在五个业务镜像（console / console-web / evidence / atlas / atlas-web）
+  在两个源上都有。
+
+## 0.1.27 · 2026-11-05
 
 - 跟版 `console v0.3.1-alpha` + `console-web v0.1.14-alpha`。
 - **接入配置简化**：证据 / 资产拓扑的示例不再新增 connector，直接复用现成的 `http_sink`

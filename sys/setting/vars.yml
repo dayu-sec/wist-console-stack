@@ -15,14 +15,14 @@ system:
   - name: CONSOLE_WEB_IMAGE_TAG
     value: v0.1.14-alpha
   - name: EVIDENCE_IMAGE_TAG
-    value: v0.1.12-alpha
+    value: v0.1.13-alpha
 
   - name: ATLAS_REGISTRY
     value: ghcr.io/dayu-sec
   - name: ATLAS_IMAGE_TAG
-    value: v0.3.2
+    value: v0.3.3
   - name: ATLAS_WEB_IMAGE_TAG
-    value: v0.1.2-alpha
+    value: v0.1.3-alpha
 
   - name: PG_REGISTRY
     value: docker.io/library
