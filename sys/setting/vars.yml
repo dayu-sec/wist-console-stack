@@ -73,6 +73,10 @@ system:
   # `cred_certificate_sha256` 与入口证书指纹。用完建议切回 ca_file。
   - name: CONSOLE_CRED_INSECURE_TLS
     value: 'false'
+  # 授权记录强制验签（Ed25519）。cred 在注册成功后会把公钥写进 `/cred/issuer-signing.pub`；
+  # 开了但公钥不在 → console 启动期就报，不静默降级。
+  - name: CONSOLE_REQUIRE_CRED_SIGNATURE
+    value: 'false'
 
   # 证据读端口（容器内，不绑宿主端口，只在 compose 网络里）。
   # 一个来源：evidence 的 `[read].listen_addr`、compose 健康检查、console 的 `base_url`

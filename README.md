@@ -194,6 +194,7 @@ curl -k -H 'x-console-operator: zhangsan' https://127.0.0.1:8088/api/health
 | `CONSOLE_CRED_URL` | 空 | cred 注册入口；留空则由初始化页填 |
 | `CONSOLE_CRED_CA_FILE` | 空 | 入口自签时的信任锚（容器内路径，如 `/cred/cred-entry-ca.pem`） |
 | `CONSOLE_CRED_INSECURE_TLS` | `false` | 明确跳过入口证书校验（与 `CA_FILE` 互斥；开了就必须核对指纹） |
+| `CONSOLE_REQUIRE_CRED_SIGNATURE` | `false` | 授权记录强制验签（公钥 `issuer-signing.pub` 同目录；开了但不在 → 启动期报） |
 
 > 改 `EVIDENCE_READ_PORT` 后只需 `gops sys localize && gops run start`；配置文件里写的是
 > `listen_addr = "0.0.0.0:${EVIDENCE_READ_PORT}"`，不要再把端口写死回 TOML。

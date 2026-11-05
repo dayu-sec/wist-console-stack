@@ -18,8 +18,12 @@
 audience = "wist-console"
 allowed_issuers = ["wist-cred"]
 roles = ["read"]
-# 签发方公钥在注册后由 cred 下发到同目录（issuer-signing.pub）；没下发前不能开验签。
-# require_signature 保持默认（false）；cred 侧配了签名钥时，接入后可以手工打开。
+# 授权记录要不要**强制验签**（Ed25519）：mTLS 已经认了 cred 的身份，这一层防的是
+# “推送链路里的中间人不改内容”（纵深防御）。
+# 公钥在自注册成功后由 cred 写进同目录（issuer-signing.pub）；手动接入时由 join.sh 写。
+# 强制开着但公钥不在 → 启动期就报（不静默退化成“不验签”）。
+require_signature = ${CONSOLE_REQUIRE_CRED_SIGNATURE}
+issuer_public_key_file = "issuer-signing.pub"
 
 [init]
 # 从密钥文件展开（`WIST_CONSOLE_SEC_FILE` → `.wist/sec-value.yml` 的 console_peer_setup_code）。

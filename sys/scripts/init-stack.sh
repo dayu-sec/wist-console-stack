@@ -80,6 +80,10 @@ if [ -f "${CRED_DIR}/server.crt" ] && [ -f "${CRED_DIR}/server.key" ]; then
     if ! grep -q '"read"' "${CRED_DIR}/cred.toml"; then
       note "  ⚠ cred.toml 的 [verify].roles 里没有 read：签发出来的令牌一律 403"
     fi
+    # 这里很容易造出“改了但没生效”的假象：栈渲染的 cred.toml 盖在 `/cred/cred.toml` 上，
+    # 接入命令写的那份因此**只贡献材料**，不贡献 [verify]。
+    note "  ⚠ 若存在 configs/console/cred.toml，它会覆盖本目录的 cred.toml：[verify] 以栈为准"
+    note "    （验签是否强制：CONSOLE_REQUIRE_CRED_SIGNATURE）"
   fi
   # 证书 SAN 必须覆盖 cred 连的那个名字（接入命令的 --host）。
   if [ -f "${SCRIPT_DIR}/lib/tls-san.sh" ]; then
