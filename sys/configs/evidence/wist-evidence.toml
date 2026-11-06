@@ -29,7 +29,7 @@ database_url = "${SEC_EVIDENCE_DB_URL}"
 
 # ── 写探针：每 5 分钟往自己的写路径投一条真证据，验证「对象 + 索引」都能写。──
 # 探针产物 `subject_id = "_probe"`；超过 `retention_hours` 的每小时扫一次删掉。
-# 也要看结果：证据服务的 `/healthz` 会多一个 `probe` 块（星象台「接口可用性」页读它）。
+# 也要看结果：证据服务的 `/healthz` 会多一个 `probe` 块（数据场「接口可用性」页读它）。
 [probe]
 enabled = true
 interval_secs = 300

@@ -1,4 +1,4 @@
-# 星象台的 cred 接入配置（**栈渲染**，覆盖 `identity/console/cred/cred.toml`）。
+# 数据场的 cred 接入配置（**栈渲染**，覆盖 `identity/console/cred/cred.toml`）。
 #
 # 三种段，三种归属：
 #   [verify]  本服务的决定（认谁、能验什么）

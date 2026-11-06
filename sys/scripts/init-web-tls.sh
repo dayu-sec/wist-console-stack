@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 生成/复用**星象台前端**（console-web 容器）的 TLS 证书 —— **两级**：一张 web CA + 由它签的叶。
+# 生成/复用**数据场前端**（console-web 容器）的 TLS 证书 —— **两级**：一张 web CA + 由它签的叶。
 #
 # 与证据 / 资产服务的证书**分开**：web 只拿自己这套，服务私钥不进 web 容器。
 # web 容器把本目录挂到 /certs，nginx 在 443 上用它终止 TLS。

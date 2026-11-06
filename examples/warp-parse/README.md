@@ -65,7 +65,7 @@ curl -sS -X POST "${EVIDENCE_SINK_URL}/internal/evidence" \
 ```
 
 应回 `200` + `{"count":1,"duplicates":0,"artifacts":[{"artifact_id":"art_...",...}]}`。
-然后在星象台的「证据」页能看到这条（主体就是 `cust_id`）。
+然后在数据场的「证据」页能看到这条（主体就是 `cust_id`）。
 
 **资产拓扑**（`content` 就是网关 `agent-discovery.jsonl` 的一行）：
 
@@ -76,7 +76,7 @@ curl -sS -X POST "${ATLAS_SINK_URL}/internal/atlas" \
 ```
 
 应回 `200` + `{"status":"accepted","count":1,"ingested":1,"rejected":0,"hosts":1,...}`；
-打开星象台的 `/atlas/` 就能看到那台主机。
+打开数据场的 `/atlas/` 就能看到那台主机。
 
 **运行指标**（`victoriametrics_sink` 推的是 VM 的 JSON line，没有 curl 样例）：
 
@@ -85,7 +85,7 @@ curl -sS -X POST "${ATLAS_SINK_URL}/internal/atlas" \
 curl -sS "${WIST_METRICS_ENDPOINT}/api/v1/query?query=vm_app_start_timestamp" | head -c 200
 ```
 
-星象台的「接口可用性」页会把这条探活显示成「运行指标存储」。
+数据场的「接口可用性」页会把这条探活显示成「运行指标存储」。
 
 ## 5. 失败语义（别把它当"必达"）
 
