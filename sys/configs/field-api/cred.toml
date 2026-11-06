@@ -1,4 +1,4 @@
-# 数据场的 cred 接入配置（**栈渲染**，覆盖 `identity/console/cred/cred.toml`）。
+# 数据场的 cred 接入配置（**栈渲染**，覆盖 `identity/field-api/cred/cred.toml`）。
 #
 # 三种段，三种归属：
 #   [verify]  本服务的决定（认谁、能验什么）
@@ -9,13 +9,13 @@
 # 本文件同一目录），由 wist-cred-peer 在初始化成功后写入。
 #
 # 切换存储 / 信任锚靠**变量**，不改本文件：
-#   CONSOLE_ADVERTISE_HOST     收数地址的主机名（= 证书 SAN；不填启动就失败）
-#   CONSOLE_CRED_URL           cred 注册入口（留空则初始化页上填）
-#   CONSOLE_CRED_CA_FILE       入口自签时的信任锚（容器内路径）
-#   CONSOLE_CRED_INSECURE_TLS  明确跳过入口证书校验（与 ca_file 互斥）
+#   FIELD_API_ADVERTISE_HOST     收数地址的主机名（= 证书 SAN；不填启动就失败）
+#   FIELD_API_CRED_URL           cred 注册入口（留空则初始化页上填）
+#   FIELD_API_CRED_CA_FILE       入口自签时的信任锚（容器内路径）
+#   FIELD_API_CRED_INSECURE_TLS  明确跳过入口证书校验（与 ca_file 互斥）
 
 [verify]
-audience = "wist-console"
+audience = "wist-field-api"
 allowed_issuers = ["wist-cred"]
 roles = ["read"]
 # 授权记录要不要**强制验签**（Ed25519）：mTLS 已经认了 cred 的身份，这一层防的是
@@ -23,18 +23,18 @@ roles = ["read"]
 # 公钥在自注册成功后由 cred 写进同目录（issuer-signing.pub）；手动接入时由 join.sh 写。
 # 强制开着但公钥不在 → 启动期就报（不静默退化成“不验签”）。
 # 字符串形式（`"true"` / `"${VAR}"`）与字面 bool 都认。
-require_signature = "${CONSOLE_REQUIRE_CRED_SIGNATURE}"
+require_signature = "${FIELD_API_REQUIRE_CRED_SIGNATURE}"
 issuer_public_key_file = "issuer-signing.pub"
 
 [init]
-# 从密钥文件展开（`WIST_CONSOLE_SEC_FILE` → `.wist/sec-value.yml` 的 console_peer_setup_code）。
-setup_code = "${SEC_CONSOLE_PEER_SETUP_CODE}"
+# 从密钥文件展开（`WIST_FIELD_SEC_FILE` → `.wist/sec-value.yml` 的 field_api_peer_setup_code）。
+setup_code = "${SEC_FIELD_API_PEER_SETUP_CODE}"
 # cred 的注册入口；留空 = 初始化页上让操作者填。
-cred_url = "${CONSOLE_CRED_URL}"
+cred_url = "${FIELD_API_CRED_URL}"
 # 信任锚：入口自签时填它的 CA（容器内路径）。留空 = 不配（那就要开 insecure_tls）。
-ca_file = "${CONSOLE_CRED_CA_FILE}"
-insecure_tls = "${CONSOLE_CRED_INSECURE_TLS}"
+ca_file = "${FIELD_API_CRED_CA_FILE}"
+insecure_tls = "${FIELD_API_CRED_INSECURE_TLS}"
 
 [publish]
 # cred 往这里推摘要、往这里探活。主机名必须等于证书 SAN（同一个变量渲染）。
-endpoint = "https://${CONSOLE_ADVERTISE_HOST}:${CREDENTIALS_HOST_PORT}/api/v1/internal/credentials"
+endpoint = "https://${FIELD_API_ADVERTISE_HOST}:${CREDENTIALS_HOST_PORT}/api/v1/internal/credentials"

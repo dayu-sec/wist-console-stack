@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 生成/复用**数据场前端**（console-web 容器）的 TLS 证书 —— **两级**：一张 web CA + 由它签的叶。
+# 生成/复用**数据场前端**（field-web 容器）的 TLS 证书 —— **两级**：一张 web CA + 由它签的叶。
 #
 # 与证据 / 资产服务的证书**分开**：web 只拿自己这套，服务私钥不进 web 容器。
 # web 容器把本目录挂到 /certs，nginx 在 443 上用它终止 TLS。
@@ -11,7 +11,7 @@
 #
 # 用法：
 #   scripts/init-web-tls.sh <域名> [身份目录]
-#     scripts/init-web-tls.sh console.example.com
+#     scripts/init-web-tls.sh field.example.com
 #
 # 生成（幂等）——身份目录下分公开/私密两半（公开进 contract、私密进 backup）：
 #   <身份>/public/web-ca.crt.pem     # CA 证书（信任锚）：**只建一次，绝不重生成**

@@ -1,20 +1,20 @@
-# wist-console-stack
+# wist-field-stack
 
 计算区**只读**界面「数据场 · 现场视图」的一体化编排：**证据 / 资产拓扑 / 运行指标 / 设备状态** 一个入口。
 
 本仓**只做编排**，镜像分别来自：
 
 - [`wist-evidence`](https://github.com/dayu-sec/wist-evidence)（证据服务）
-- [`wist-console`](https://github.com/dayu-sec/wist-console)（BFF）
-- [`wist-console-web`](https://github.com/dayu-sec/wist-console-web)（前端）
+- [`wist-field-api`](https://github.com/dayu-sec/wist-field-api)（BFF）
+- [`wist-field-web`](https://github.com/dayu-sec/wist-field-web)（前端）
 - [`wist-atlas`](https://github.com/dayu-sec/wist-atlas) / [`wist-atlas-web`](https://github.com/dayu-sec/wist-atlas-web)（资产与拓扑）
 
 ## 组件
 
 | 服务 | 作用 | 端口（宿主:容器） | 镜像 |
 |---|---|---|---|
-| `web` | 唯一浏览器入口：静态托管 + `/api`、`/atlas/` 反代 | `${WEB_BIND_IP}:${WEB_HOST_PORT}:80` | `wist-console-web` |
-| `console` | BFF：身份 / 健康聚合 / 预签名转发 | 仅 compose 网络 `:8080` | `wist-console` |
+| `web` | 唯一浏览器入口：静态托管 + `/api`、`/atlas/` 反代 | `${WEB_BIND_IP}:${WEB_HOST_PORT}:80` | `wist-field-web` |
+| `field-api` | 只读 API（BFF）：身份 / 健康聚合 / 预签名转发 / 指标查询 | 仅 compose 网络 `:8080` | `wist-field-api` |
 | `evidence` | 证据索引 + 对象存储 | 写 `${EVIDENCE_SINK_BIND_IP}:${EVIDENCE_SINK_HOST_PORT}:8080`；读仅网络内 `:${EVIDENCE_READ_PORT}` | `wist-evidence` |
 | `atlas` | 资产与拓扑 API | 写 `${ATLAS_INGEST_BIND_IP}:${ATLAS_INGEST_HOST_PORT}:8080`；读仅网络内 `:8080` | `wist-atlas` |
 | `atlas-web` | 拓扑画布（挂 `/atlas/`） | 仅网络内 `:80` | `wist-atlas-web` |
@@ -47,7 +47,7 @@ docker compose --project-directory . -f sys/docker-compose.yml --env-file .env u
 #    https://127.0.0.1:8088/   （TLS 在 web 容器里终结；证书自动生成）
 ```
 
-入口要**访问令牌**：`console` 配的是 `auth.mode = "cred"`，令牌由 `wist-cred` 签发。
+入口要**访问令牌**：`field-api` 配的是 `auth.mode = "cred"`，令牌由 `wist-cred` 签发。
 没有令牌就没有「匿名打开」这一档 —— 先把本栈接入凭据中心（见下面「接入 wisst-cred」）。
 
 ```bash
@@ -66,7 +66,7 @@ gops run start
 > `gops` 用**栈根**当 compose 的 project directory，所以 `./configs`、`./.wist` 都在栈根；
 > `sys/configs/` 只是种子。手动 `docker compose` 时也要带 `--project-directory .`，否则挂载会指错。
 
-现场覆盖值写 ops-prj 的 `values/wist-console-stack/sys_value.yml`，不要改 `sys/setting/vars.yml`。
+现场覆盖值写 ops-prj 的 `values/wist-field-stack/sys_value.yml`，不要改 `sys/setting/vars.yml`。
 
 ## 本机访问
 
@@ -77,35 +77,35 @@ TLS 在 `web` 容器里终结（80 只给健康检查、不发布到宿主）。
 **把 `identity/web/public/web-ca.crt.pem` 导入浏览器信任库一次**，之后换叶零动作；
 不导入就只能「继续访问（不安全）」。
 
-`console` 是 **`cred`** 模式（默认，也是唯一推荐）：
+`field-api` 是 **`cred`** 模式（默认，也是唯一推荐）：
 
 - 浏览器打开页面时会要求粘贴访问令牌（`wcr_…`），令牌只存在 `sessionStorage`；
-- BFF 用 `wist-cred-peer` 的摘要表验：没带 → 401 `console_credential_missing`，
-  不认识 / 过期 / 撤销 → 401 `console_credential_invalid`，角色不够 → 403 `console_role_required`；
-- 摘要由 `wist-cred` 通过 **mTLS** 推到 `console` 的 3103（宿主 `${CREDENTIALS_BIND_IP}:${CREDENTIALS_HOST_PORT}`），
+- BFF 用 `wist-cred-peer` 的摘要表验：没带 → 401 `field_credential_missing`，
+  不认识 / 过期 / 撤销 → 401 `field_credential_invalid`，角色不够 → 403 `field_role_required`；
+- 摘要由 `wist-cred` 通过 **mTLS** 推到 `field-api` 的 3103（宿主 `${CREDENTIALS_BIND_IP}:${CREDENTIALS_HOST_PORT}`），
   本地只落 sha256，不进 PG、重启不丢。
 
 ### 接入 wist-cred（一次性，P1 自注册）
 
-默认路径：**console 自己注册**。栈渲染的 `configs/console/cred.toml` 带 `[init]`，
-首次启动只开 `/__init`，注册材料由服务自己写进 `identity/console/cred/`。
+默认路径：**field-api 自己注册**。栈渲染的 `configs/field-api/cred.toml` 带 `[init]`，
+首次启动只开 `/__init`，注册材料由服务自己写进 `identity/field-api/cred/`。
 
-1. 先把两个部署事实写进 `values/wist-console-stack/sys_value.yml`（或 `.env`）：
+1. 先把两个部署事实写进 `values/wist-field-stack/sys_value.yml`（或 `.env`）：
 
    ```yaml
    # 收数地址的主机名 = 证书 SAN = cred 拨号的地址。**不填就启动失败**（有意如此）。
-   CONSOLE_ADVERTISE_HOST: console.dev.wist.lab
+   FIELD_API_ADVERTISE_HOST: field.dev.wist.lab
    # cred 的注册入口（留空 = 初始化页上填）。
-   CONSOLE_CRED_URL: https://cred.dev.wist.lab:4444
+   FIELD_API_CRED_URL: https://cred.dev.wist.lab:4444
    # cred 在别的机器/容器里时，收数监听不能只绑回环。
    CREDENTIALS_BIND_IP: 0.0.0.0
-   # 入口是自签证书：给它 CA；拿不到 CA 时才用 CONSOLE_CRED_INSECURE_TLS: 'true'。
-   CONSOLE_CRED_CA_FILE: /cred/cred-entry-ca.pem
+   # 入口是自签证书：给它 CA；拿不到 CA 时才用 FIELD_API_CRED_INSECURE_TLS: 'true'。
+   FIELD_API_CRED_CA_FILE: /cred/cred-entry-ca.pem
    ```
 
-2. 在 cred 页面建「认证系统」**`wist-console`**（角色至少 `read`），签发一张**接入券**（`wot_…`）；
+2. 在 cred 页面建「认证系统」**`wist-field-api`**（角色至少 `read`），签发一张**接入券**（`wot_…`）；
    同时拿到 **setup code**：`bash sys/scripts/init-stack.sh` 会幂等生成它并写进
-   `sys/.wist/sec-value.yml` → `SEC_CONSOLE_PEER_SETUP_CODE`（0640；没生成过就读不到，
+   `sys/.wist/sec-value.yml` → `SEC_FIELD_API_PEER_SETUP_CODE`（0640；没生成过就读不到，
    现场也不要自己编一个弱口令）。
 
 3. 起栈（`gops run start`），打开 **<https://127.0.0.1:8088/__init>**，填 setup code + 券 → 提交。
@@ -126,12 +126,12 @@ TLS 在 `web` 容器里终结（80 只给健康检查、不发布到宿主）。
 | 错误码 | 含义 / 怎么修 |
 |---|---|
 | `setup_code_invalid` | 页面上的 setup code 与 `sec-value.yml` 里的不一致（403，不落任何材料） |
-| `cred_unreachable` + `certificate` | 入口自签且没配信任锚：设 `CONSOLE_CRED_CA_FILE`，或明确开 `CONSOLE_CRED_INSECURE_TLS` 后再核对指纹 |
-| `publish_endpoint_invalid` | `CONSOLE_ADVERTISE_HOST` 是空（地址渲染成 `https://:18802/…`）；同时 console 启动期就会拒 |
+| `cred_unreachable` + `certificate` | 入口自签且没配信任锚：设 `FIELD_API_CRED_CA_FILE`，或明确开 `FIELD_API_CRED_INSECURE_TLS` 后再核对指纹 |
+| `publish_endpoint_invalid` | `FIELD_API_ADVERTISE_HOST` 是空（地址渲染成 `https://:18802/…`）；同时 field-api 启动期就会拒 |
 | `host_mismatch` | 页面上手填的证书主机名与 `[publish].endpoint` 的主机名不一致（cred 按后者拨号） |
-| `bundle_rejected` / `enroll_rejected` | cred 拒绝：券已用/过期，或认证系统名字不是 `wist-console` |
+| `bundle_rejected` / `enroll_rejected` | cred 拒绝：券已用/过期，或认证系统名字不是 `wist-field-api` |
 
-> 想重来：删掉 `identity/console/cred/{server.crt,server.key,client-ca.pem}` 后重启。
+> 想重来：删掉 `identity/field-api/cred/{server.crt,server.key,client-ca.pem}` 后重启。
 
 ### 升级后配置没生效？先看 `init-stack.sh` 的提示
 
@@ -151,7 +151,7 @@ FORCE_CONFIGS=1 bash sys/scripts/init-stack.sh   # 用种子覆盖 configs/ 下�
 ```bash
 bash sys/scripts/init-stack.sh                       # 先备料（目录 / sec-value / web TLS）
 curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- \
-  --dir './identity/console/cred' \
+  --dir './identity/field-api/cred' \
   --host "$(hostname -f)" \
   --roles admin,read
 ```
@@ -170,11 +170,11 @@ curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- \
 
 ### 只想用入口认证？
 
-把 `auth.mode` 改成 `ingress`（运行态 `configs/console/console.toml`），
-入口（VPN / 堡垒机 / 反代）认证后注入 `x-console-operator` 即可：
+把 `auth.mode` 改成 `ingress`（运行态 `configs/field-api/field-api.toml`），
+入口（VPN / 堡垒机 / 反代）认证后注入 `x-field-operator` 即可：
 
 ```bash
-curl -k -H 'x-console-operator: zhangsan' https://127.0.0.1:8088/api/health
+curl -k -H 'x-field-operator: zhangsan' https://127.0.0.1:8088/api/health
 ```
 
 页面：
@@ -200,14 +200,14 @@ curl -k -H 'x-console-operator: zhangsan' https://127.0.0.1:8088/api/health
 | `ATLAS_INGEST_BIND_IP` / `ATLAS_INGEST_HOST_PORT` | `127.0.0.1:18801` | 资产拓扑写入端口（数据面投 DSNAP） |
 | `VM_BIND_IP` / `VM_HOST_PORT` | `127.0.0.1:18428` | VictoriaMetrics：数据面 remote write + 运维查询 |
 | `ATLAS_PROBE` / `ATLAS_PROBE_INTERVAL_SECS` | `on` / `300` | atlas 写探针（往保留租户写最小 DSNAP） |
-| `EVIDENCE_READ_PORT` | `8443` | 证据读监听（容器内）。**一个来源**：evidence 的 `[read].listen_addr`、compose 健康检查、console 的 `evidence.base_url` 都从它来 |
+| `EVIDENCE_READ_PORT` | `8443` | 证据读监听（容器内）。**一个来源**：evidence 的 `[read].listen_addr`、compose 健康检查、field-api 的 `evidence.base_url` 都从它来 |
 | `PG_BIND_IP` / `EVIDENCE_PG_HOST_PORT` / `ATLAS_PG_HOST_PORT` | `127.0.0.1:55434/55435` | 两个 PG（仅供排查） |
 | `CREDENTIALS_BIND_IP` / `CREDENTIALS_HOST_PORT` | `0.0.0.0:18802` | cred 推送摘要 / 心跳的 mTLS 端口 |
-| `CONSOLE_ADVERTISE_HOST` | 空（**必填**） | 收数地址的主机名 = 证书 SAN = cred 拨号地址；不填 console 启动期就拒 |
-| `CONSOLE_CRED_URL` | 空 | cred 注册入口；留空则由初始化页填 |
-| `CONSOLE_CRED_CA_FILE` | 空 | 入口自签时的信任锚（容器内路径，如 `/cred/cred-entry-ca.pem`） |
-| `CONSOLE_CRED_INSECURE_TLS` | `false` | 明确跳过入口证书校验（与 `CA_FILE` 互斥；开了就必须核对指纹） |
-| `CONSOLE_REQUIRE_CRED_SIGNATURE` | `false` | 授权记录强制验签（公钥 `issuer-signing.pub` 同目录；开了但不在 → 启动期报） |
+| `FIELD_API_ADVERTISE_HOST` | 空（**必填**） | 收数地址的主机名 = 证书 SAN = cred 拨号地址；不填 field-api 启动期就拒 |
+| `FIELD_API_CRED_URL` | 空 | cred 注册入口；留空则由初始化页填 |
+| `FIELD_API_CRED_CA_FILE` | 空 | 入口自签时的信任锚（容器内路径，如 `/cred/cred-entry-ca.pem`） |
+| `FIELD_API_CRED_INSECURE_TLS` | `false` | 明确跳过入口证书校验（与 `CA_FILE` 互斥；开了就必须核对指纹） |
+| `FIELD_API_REQUIRE_CRED_SIGNATURE` | `false` | 授权记录强制验签（公钥 `issuer-signing.pub` 同目录；开了但不在 → 启动期报） |
 
 > 改 `EVIDENCE_READ_PORT` 后只需 `gops sys localize && gops run start`；配置文件里写的是
 > `listen_addr = "0.0.0.0:${EVIDENCE_READ_PORT}"`，不要再把端口写死回 TOML。
@@ -215,11 +215,11 @@ curl -k -H 'x-console-operator: zhangsan' https://127.0.0.1:8088/api/health
 | 文件 | 内容 |
 |---|---|
 | `sys/configs/evidence/wist-evidence.toml` | 种子：sink 监听 / 允许的 kind / 索引库 / 对象存储（运行态在 `configs/evidence/`） |
-| `sys/configs/console/console.toml` | 入口身份、到证据服务的租户与敏感度、atlas 读/写地址、VM 地址 |
+| `sys/configs/field-api/field-api.toml` | 入口身份、到证据服务的租户与敏感度、atlas 读/写地址、VM 地址 |
 | `sys/.wist/sec-value.yml` | `${SEC_...}` 的真值（DB URL、COS 凭据），**不入库** |
 
 - 写端点不校验身份（内网可信）；P1 换成 HTTPS 双向认证；
-- 两处 `tenant`（evidence 的 sink 声明与 console 的读身份）必须一致。
+- 两处 `tenant`（evidence 的 sink 声明与 field-api 的读身份）必须一致。
 
 ### 证据正文存在哪（两种模式）
 
@@ -322,7 +322,7 @@ name = "metrics_vmetrics_sink"
 connect = "victoriametrics_sink"
 
 [sink_group.sinks.params]
-endpoint = "${WIST_METRICS_ENDPOINT}"   # http://<console-stack 地址>:18428
+endpoint = "${WIST_METRICS_ENDPOINT}"   # http://<field-stack 地址>:18428
 ```
 
 数据场的「接口可用性」页会多一条「运行指标存储」（探 VM 的 `/health`）。
@@ -330,11 +330,11 @@ endpoint = "${WIST_METRICS_ENDPOINT}"   # http://<console-stack 地址>:18428
 
 ## 容器用户与挂载权限
 
-`evidence` / `console` 镜像以 **10001:10001** 运行（非 root）。挂进来的文件要让这个 uid 可读：
+`evidence` / `field-api` 镜像以 **10001:10001** 运行（非 root）。挂进来的文件要让这个 uid 可读：
 
 ```bash
 # 配置（不含密钥）保持 0644 即可
-chmod 0644 sys/configs/evidence/*.toml sys/configs/console/*.toml
+chmod 0644 sys/configs/evidence/*.toml sys/configs/field-api/*.toml
 
 # 密钥：0640，属主/属组给 10001（需要 sudo）
 sudo chown 10001:10001 sys/.wist/sec-value.yml

@@ -1,8 +1,8 @@
-# wist-console-stack — 计算区运维台（证据 / 资产拓扑 / 采集量 / 设备状态）
+# wist-field-stack — 计算区「数据场 · 现场视图」（证据 / 资产拓扑 / 运行指标 / 设备状态）
 #
 # 角色分工（浏览器只接触 web）：
-#   web         console-web：静态托管 + 同源反代（/api → console，/atlas/ → atlas-web）
-#   console     console BFF：到证据服务的身份、健康聚合、预签名转发
+#   web         field-web：静态托管 + 同源反代（/api → field-api，/atlas/ → atlas-web）
+#   field-api   只读 API（BFF）：到证据服务的身份、健康聚合、预签名转发、指标查询
 #   evidence    wist-evidence：索引 + 对象存储（正文只在计算区与 COS 之间流动）
 #   atlas       wist-atlas：资产与拓扑 API
 #   atlas-web   wist-atlas-web：拓扑画布（挂在 /atlas/，不单独对外）
@@ -19,13 +19,13 @@
 #                    数据面 remote write / 运维查指标
 #   evidence-pg      ${PG_BIND_IP}:${EVIDENCE_PG_HOST_PORT}:5432
 #   atlas-pg         ${PG_BIND_IP}:${ATLAS_PG_HOST_PORT}:5432
-#   evidence（读）/ console / atlas-web：只在 compose 网络内，不绑宿主端口
-#                    证据读端口是 `${EVIDENCE_READ_PORT}`（与 evidence 配置 / console 同一来源）
-name: wist-console-stack
+#   evidence（读）/ field-api / atlas-web：只在 compose 网络内，不绑宿主端口
+#                    证据读端口是 `${EVIDENCE_READ_PORT}`（与 evidence 配置 / field-api 同一来源）
+name: wist-field-stack
 
 services:
   evidence-postgres:
-    container_name: wist-console-stack-evidence-postgres
+    container_name: wist-field-stack-evidence-postgres
     image: ${PG_REGISTRY}/postgres:${PG_IMAGE_TAG}
     restart: unless-stopped
     environment:
@@ -44,7 +44,7 @@ services:
       retries: 20
 
   atlas-postgres:
-    container_name: wist-console-stack-atlas-postgres
+    container_name: wist-field-stack-atlas-postgres
     image: ${PG_REGISTRY}/postgres:${PG_IMAGE_TAG}
     restart: unless-stopped
     environment:
@@ -63,8 +63,8 @@ services:
       retries: 20
 
   evidence:
-    container_name: wist-console-stack-evidence
-    image: ${CONSOLE_REGISTRY}/wist-evidence:${EVIDENCE_IMAGE_TAG}
+    container_name: wist-field-stack-evidence
+    image: ${FIELD_REGISTRY}/wist-evidence:${EVIDENCE_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       evidence-postgres:
@@ -72,7 +72,7 @@ services:
     environment:
       WIST_EVIDENCE_CONFIG: /etc/wist-evidence/wist-evidence.toml
       WIST_EVIDENCE_SEC_FILE: /sec/sec-value.yml
-      # 读监听端口：配置文件里是 `${EVIDENCE_READ_PORT}`，健康检查与 console 也用它。
+      # 读监听端口：配置文件里是 `${EVIDENCE_READ_PORT}`，健康检查与 field-api 也用它。
       EVIDENCE_READ_PORT: ${EVIDENCE_READ_PORT}
       TZ: ${TZ}
     ports:
@@ -96,7 +96,7 @@ services:
       start_period: 10s
 
   atlas:
-    container_name: wist-console-stack-atlas
+    container_name: wist-field-stack-atlas
     image: ${ATLAS_REGISTRY}/wist-atlas:${ATLAS_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
@@ -121,7 +121,7 @@ services:
       start_period: 10s
 
   metrics:
-    container_name: wist-console-stack-metrics
+    container_name: wist-field-stack-metrics
     image: ${VM_REGISTRY}/victoria-metrics:${VM_IMAGE_TAG}
     restart: unless-stopped
     command:
@@ -140,7 +140,7 @@ services:
       start_period: 30s
 
   atlas-web:
-    container_name: wist-console-stack-atlas-web
+    container_name: wist-field-stack-atlas-web
     image: ${ATLAS_REGISTRY}/wist-atlas-web:${ATLAS_WEB_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
@@ -154,25 +154,25 @@ services:
       retries: 12
       start_period: 5s
 
-  console:
-    container_name: wist-console-stack-console
-    image: ${CONSOLE_REGISTRY}/wist-console:${CONSOLE_IMAGE_TAG}
+  field-api:
+    container_name: wist-field-stack-field-api
+    image: ${FIELD_REGISTRY}/wist-field-api:${FIELD_API_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       evidence:
         condition: service_healthy
     environment:
-      WIST_CONSOLE_CONFIG: /etc/wist-console/console.toml
-      WIST_CONSOLE_SEC_FILE: /sec/sec-value.yml
-      # 证据读端口：`console.toml` 的 `evidence.base_url` 里是 `${EVIDENCE_READ_PORT}`。
+      WIST_FIELD_CONFIG: /etc/wist-field-api/field-api.toml
+      WIST_FIELD_SEC_FILE: /sec/sec-value.yml
+      # 证据读端口：`field-api.toml` 的 `evidence.base_url` 里是 `${EVIDENCE_READ_PORT}`。
       EVIDENCE_READ_PORT: ${EVIDENCE_READ_PORT}
-      # 自注册：`cred.toml` 里这几个都是 `${CONSOLE_…}`，与上面同一机制（BFF 启动时
+      # 自注册：`cred.toml` 里这几个都是 `${FIELD_API_…}`，与上面同一机制（BFF 启动时
       # 用「密钥文件 + 进程环境」展开）。不收变量就只能改文件，而现场不该为此改文件。
-      CONSOLE_ADVERTISE_HOST: ${CONSOLE_ADVERTISE_HOST}
-      CONSOLE_CRED_URL: ${CONSOLE_CRED_URL}
-      CONSOLE_CRED_CA_FILE: ${CONSOLE_CRED_CA_FILE}
-      CONSOLE_CRED_INSECURE_TLS: ${CONSOLE_CRED_INSECURE_TLS}
-      CONSOLE_REQUIRE_CRED_SIGNATURE: ${CONSOLE_REQUIRE_CRED_SIGNATURE}
+      FIELD_API_ADVERTISE_HOST: ${FIELD_API_ADVERTISE_HOST}
+      FIELD_API_CRED_URL: ${FIELD_API_CRED_URL}
+      FIELD_API_CRED_CA_FILE: ${FIELD_API_CRED_CA_FILE}
+      FIELD_API_CRED_INSECURE_TLS: ${FIELD_API_CRED_INSECURE_TLS}
+      FIELD_API_REQUIRE_CRED_SIGNATURE: ${FIELD_API_REQUIRE_CRED_SIGNATURE}
       # 收数地址里的端口也是模板里的 `${CREDENTIALS_HOST_PORT}` —— 不传进来就展不开，
       # 启动期会拒（`unresolved environment variable`）。端口只有一个来源：ports 映射那条。
       CREDENTIALS_HOST_PORT: ${CREDENTIALS_HOST_PORT}
@@ -181,19 +181,19 @@ services:
       # 凭据收数监听（mTLS）：`wist-cred` 推摘要过来。没有它就只能用已登记的旧凭据。
       - "${CREDENTIALS_BIND_IP}:${CREDENTIALS_HOST_PORT}:3103"
     volumes:
-      - ./configs/console:/etc/wist-console:ro
+      - ./configs/field-api:/etc/wist-field-api:ro
       - ./.wist:/sec:ro
       # cred 接入材料：**两种来源**
       #   · `cred.toml` 由栈渲染（[init] + [publish] + [verify]）→ 跑自注册；
       #   · 或者跑了接入命令（join.sh）写好的 [identity] + [verify]。
       # 目录**可写**：自注册成功后本服务把 server.crt / server.key / client-ca.pem 写到这里。
-      # 注意：挂到 `/etc/wist-console/cred`（只读配置挂载的子目录）会让 docker 在只读层里
+      # 注意：挂到 `/etc/wist-field-api/cred`（只读配置挂载的子目录）会让 docker 在只读层里
       # 建挂载点而失败（`mkdirat ... Read-only file system`）。所以另起一个顶层路径。
-      - ./identity/console/cred:/cred
+      - ./identity/field-api/cred:/cred
       # 栈渲染的 cred.toml（带 setup code / 收数地址）：覆盖目录里的同名文件，只读。
-      - ./configs/console/cred.toml:/cred/cred.toml:ro
+      - ./configs/field-api/cred.toml:/cred/cred.toml:ro
       # 摘要表（只存 sha256）：验证侧私有状态，重启不丢、不进 PG。
-      - ./data/console:/var/lib/wist-console
+      - ./data/field-api:/var/lib/wist-field-api
     healthcheck:
       test: ["CMD", "/bin/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 10s
@@ -202,11 +202,11 @@ services:
       start_period: 5s
 
   web:
-    container_name: wist-console-stack-web
-    image: ${CONSOLE_REGISTRY}/wist-console-web:${CONSOLE_WEB_IMAGE_TAG}
+    container_name: wist-field-stack-web
+    image: ${FIELD_REGISTRY}/wist-field-web:${FIELD_WEB_IMAGE_TAG}
     restart: unless-stopped
     depends_on:
-      console:
+      field-api:
         condition: service_healthy
       atlas-web:
         condition: service_started
@@ -227,6 +227,8 @@ services:
       start_period: 5s
 
 volumes:
+  # 卷名随项目名（`wist-field-stack_*`）。0.2.0 改名后旧卷 `wist-console-stack_*`
+  # 会留在宿主上不再被引用：确认不需要旧数据后自行 `docker volume rm`。
   evidence-pgdata:
   atlas-pgdata:
   metrics-data:

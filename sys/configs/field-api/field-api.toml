@@ -1,4 +1,4 @@
-# console BFF 配置 —— 计算区 stack 口径
+# field-api 配置 —— 计算区 stack 口径
 #
 # 浏览器只跟 BFF 说话；到证据服务的租户 / scope / 敏感度只在这里。
 
@@ -8,27 +8,27 @@ listen_addr = "0.0.0.0:8080"
 [auth]
 # cred：访问令牌（`wist-cred` 签发，`Authorization: Bearer wcr_…`）由 BFF 用摘要表验。
 #       cred 通过 mTLS 把摘要推到本服务的 `credentials.listen_addr`。
-# ingress：完全交给入口（VPN / 堡垒机 / 反代）认证并注入 `x-console-operator`，
+# ingress：完全交给入口（VPN / 堡垒机 / 反代）认证并注入 `x-field-operator`，
 #       BFF 不验 token —— 只有在入口确实做了认证、且能保证头不被伪造时才选它。
 #
 # **没有「不校验」这一档。**
 mode = "cred"
-operator_header = "x-console-operator"
+operator_header = "x-field-operator"
 
 [credentials]
 # `cred.toml` 由接入命令写入（identity + verify 两段），**不要手改、也不要抄到这里**：
-#   curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/console/cred'
+#   curl -fsSLk 'https://<cred>/enroll/<券>/join.sh' | bash -s -- --dir './identity/field-api/cred'
 # 材料随 `sys/` 一起进镜像/卷，相对路径按 cred.toml 所在目录解。
 file = "/cred/cred.toml"
 # cred 推送摘要的 mTLS 监听（容器内固定；宿主端口由编排决定）。
 listen_addr = "0.0.0.0:3103"
 # 摘要表（**只存 sha256**）：验证侧私有状态，不进 PG、不备份。
-store_path = "/var/lib/wist-console/credentials.json"
-# 进 console 需要的角色：cred 页面签发时选的角色组合里至少命中一个。
+store_path = "/var/lib/wist-field-api/credentials.json"
+# 进本服务需要的角色：cred 页面签发时选的角色组合里至少命中一个。
 required_roles = ["read"]
 
 # 身份：**这里的 tenant 就是客户 id**（证据服务的租户=客户）。
-# 想同时看多个客户需要 console 侧加客户筛选（当前一页一个客户）。
+# 想同时看多个客户需要本服务侧加客户筛选（当前一页一个客户）。
 # 端口来自栈级变量 `EVIDENCE_READ_PORT`，与证据服务的监听保持同一个来源。
 [evidence]
 base_url = "http://evidence:${EVIDENCE_READ_PORT}"

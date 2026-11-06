@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 0.2.0 · 2026-11-06
+
+- **改名：`wist-console-stack` → `wist-field-stack`**：仓名、compose 项目名、容器名
+  （`wist-field-stack-*`）、网络内服务名（`console` → `field-api`）全部跟着改；镜像跟版
+  `wist-field-api v0.6.0-alpha` + `wist-field-web v0.2.0-alpha`（web 反代上游已改成 `field-api:8080`）。
+- **变量与路径全部改名**：`CONSOLE_REGISTRY` / `CONSOLE_IMAGE_TAG` / `CONSOLE_WEB_IMAGE_TAG`
+  → `FIELD_REGISTRY` / `FIELD_API_IMAGE_TAG` / `FIELD_WEB_IMAGE_TAG`；
+  `CONSOLE_ADVERTISE_HOST` / `CONSOLE_CRED_URL` / `CONSOLE_CRED_CA_FILE` /
+  `CONSOLE_CRED_INSECURE_TLS` / `CONSOLE_REQUIRE_CRED_SIGNATURE` → `FIELD_API_*`；
+  `configs/console` → `configs/field-api`、`console.toml` → `field-api.toml`；
+  `identity/console/cred` → `identity/field-api/cred`；`data/console` → `data/field-api`
+  （容器内 `/var/lib/wist-field-api`）。站点 `values/` 里的同名项要一起改。
+- **凭据侧也改名（= 一次重新接入）**：cred 认证系统 audience 改为 `wist-field-api`，
+  密钥项改为 `SEC_FIELD_API_PEER_SETUP_CODE`，ingress 操作员头改为 `x-field-operator`。
+  旧 `wist-console` 认证系统的令牌与摘要不再可用；在 cred 里新建 `wist-field-api` 系统、
+  重新签发令牌即可，**不需要改代码**。
+- **卷与数据不复用**：项目名变了，卷名随之为 `wist-field-stack_*`。旧的
+  `wist-console-stack_*`（PG / VM 数据）留在宿主上不再被引用，确认不要后
+  `docker volume rm` 自行清理。
+- **升级步骤**：
+  1. 先停旧栈：`gops run stop`（或 `docker compose -p wist-console-stack down`，别加 `-v`）；
+  2. `bash sys/scripts/init-stack.sh`（补 `SEC_FIELD_API_PEER_SETUP_CODE`、建
+     `data/field-api` 与 `identity/field-api`）；
+  3. `gops sys localize` → `gops run start`；
+  4. 打开页面走 `/__init` 重新接入，然后用新令牌登录。
+
 ## 0.1.30 · 2026-11-06
 
 - 跟版 `console v0.5.0-alpha` + `console-web v0.1.17-alpha` + `evidence v0.1.14-alpha`（把 0.1.29 之后的两版一起带上）。

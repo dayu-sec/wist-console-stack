@@ -17,7 +17,7 @@ default_sensitivity = "paths"
 
 # 认证：写入端点不校验（内网可信）；P1 换成 HTTPS 双向认证。
 
-# ── 读面：console BFF 调用（P0 明网 + 身份头；mTLS 在 P1）─────────────────
+# ── 读面：field-api（BFF）调用（P0 明网 + 身份头；mTLS 在 P1）─────────────────
 # 端口由栈级变量 `EVIDENCE_READ_PORT` 给（`.env` / `values/`），不在这里写死。
 [read]
 listen_addr = "0.0.0.0:${EVIDENCE_READ_PORT}"
