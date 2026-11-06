@@ -6,8 +6,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIELD_REGISTRY="${FIELD_REGISTRY:-ghcr.io/dayu-sec}"
 
 EVIDENCE_REPO="${EVIDENCE_REPO:-${ROOT}/../../wist/wist-evidence}"
-FIELD_API_REPO="${FIELD_API_REPO:-${ROOT}/../../wist/wist-console}"
-FIELD_WEB_REPO="${FIELD_WEB_REPO:-${ROOT}/../../wist-console-web}"
+FIELD_API_REPO="${FIELD_API_REPO:-${ROOT}/../../wist/wist-field-api}"
+FIELD_WEB_REPO="${FIELD_WEB_REPO:-${ROOT}/../../wist-field-web}"
 ATLAS_REPO="${ATLAS_REPO:-${ROOT}/../../wist-atlas}"
 ATLAS_WEB_REPO="${ATLAS_WEB_REPO:-${ROOT}/../../wist-atlas-web}"
 
