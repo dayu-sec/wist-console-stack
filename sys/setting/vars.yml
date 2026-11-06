@@ -11,9 +11,9 @@ system:
     value: ghcr.io/dayu-sec
 
   - name: CONSOLE_IMAGE_TAG
-    value: v0.3.1-alpha
+    value: v0.4.0-alpha
   - name: CONSOLE_WEB_IMAGE_TAG
-    value: v0.1.14-alpha
+    value: v0.1.15-alpha
   - name: EVIDENCE_IMAGE_TAG
     value: v0.1.13-alpha
 

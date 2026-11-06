@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.1.29 · 2026-11-06
+
+- 跟版 `console v0.4.0-alpha` + `console-web v0.1.15-alpha`。
+- **「运行指标」页上线**：不再是一个占位页。数据面把 agent 采集指标镜像进本栈的
+  VictoriaMetrics（网关栈的 `CONSOLE_VM_ENDPOINT`），页面读这一份：概览（指标名 / 序列 /
+  在报 agent / 采集窗口）、Agent 自观测表、单机四条趋势、按前缀折叠的指标目录。
+- **口径边界写清楚**：引擎 / 管道统计（`wparse_*`）只写网关栈那份 VM，本页不展示；
+  序列数比网关栈少是正常的。没配 `[metrics] base_url` 时 BFF 回 `503 metrics_not_configured`，
+  页面会直接说缺哪项配置。
+
 ## 0.1.28 · 2026-11-05
 
 - 跟版三个**只为同步 TCR 而重发**的镜像（代码零变更）：
