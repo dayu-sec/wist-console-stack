@@ -4,7 +4,9 @@
 
 - **改名：`wist-console-stack` → `wist-field-stack`**：仓名、compose 项目名、容器名
   （`wist-field-stack-*`）、网络内服务名（`console` → `field-api`）全部跟着改；镜像跟版
-  `wist-field-api v0.6.0-alpha` + `wist-field-web v0.2.0-alpha`（web 反代上游已改成 `field-api:8080`）。
+  `wist-field-api v0.6.1-alpha` + `wist-field-web v0.2.1-alpha`（web 反代上游已改成
+  `field-api:8080`）。这两个版本只是把发版流水线换成原生分架构构建，镜像内容与
+  0.6.0 / 0.2.0 一致。
 - **变量与路径全部改名**：`CONSOLE_REGISTRY` / `CONSOLE_IMAGE_TAG` / `CONSOLE_WEB_IMAGE_TAG`
   → `FIELD_REGISTRY` / `FIELD_API_IMAGE_TAG` / `FIELD_WEB_IMAGE_TAG`；
   `CONSOLE_ADVERTISE_HOST` / `CONSOLE_CRED_URL` / `CONSOLE_CRED_CA_FILE` /
