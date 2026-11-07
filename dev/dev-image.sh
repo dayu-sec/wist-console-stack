@@ -35,6 +35,7 @@ note() { echo "  $*"; }
 SVC="api"
 FIELD_API_SRC=""
 ATLAS_SRC=""
+WEB_SRC=""
 STACK=""
 TAG=""
 PROFILE="debug"
@@ -45,6 +46,7 @@ while [[ $# -gt 0 ]]; do
     --svc) SVC="${2:-}"; shift 2 ;;
     --api) FIELD_API_SRC="${2:-}"; SVC="api"; shift 2 ;;
     --atlas) ATLAS_SRC="${2:-}"; SVC="atlas"; shift 2 ;;
+    --web) WEB_SRC="${2:-}"; SVC="web"; shift 2 ;;
     --stack) STACK="${2:-}"; shift 2 ;;
     --tag) TAG="${2:-}"; shift 2 ;;
     --release) PROFILE="release"; shift ;;
@@ -67,6 +69,19 @@ case "${SVC}" in
     COMPOSE_SERVICE="field-api"
     CONTAINER="wist-field-stack-field-api"
     ;;
+  web)
+    SRC="${WEB_SRC}"
+    [[ -n "${SRC}" ]] || die "缺少 --web <wist-field-web 仓>"
+    [[ -f "${SRC}/package.json" ]] || die "--web 不是 wist-field-web 仓：${SRC}"
+    [[ -d "${SRC}/node_modules" ]] || die "还没装依赖：cd ${SRC} && npm install"
+    CARGO_ARGS=()
+    BIN=""
+    IMAGE_NAME="wist-field-web"
+    REGISTRY_VAR="FIELD_REGISTRY"
+    TAG_VAR="FIELD_WEB_IMAGE_TAG"
+    COMPOSE_SERVICE="web"
+    CONTAINER="wist-field-stack-web"
+    ;;
   atlas)
     SRC="${ATLAS_SRC}"
     [[ -n "${SRC}" ]] || die "缺少 --atlas <wist-atlas 仓>"
@@ -80,7 +95,7 @@ case "${SVC}" in
     CONTAINER="wist-field-stack-atlas"
     ;;
   *)
-    die "--svc 只能是 api|atlas，收到 ${SVC}"
+    die "--svc 只能是 api|atlas|web，收到 ${SVC}"
     ;;
 esac
 
@@ -94,19 +109,20 @@ fi
   die "--stack 不像 gops 栈目录（缺 .env 或 sys/docker-compose.yml）：${STACK}"
 STACK="$(cd "${STACK}" && pwd)"
 
-command -v zig >/dev/null 2>&1 || die "缺少 zig：brew install zig"
-command -v cargo-zigbuild >/dev/null 2>&1 ||
-  die "缺少 cargo-zigbuild：cargo install cargo-zigbuild --locked"
 command -v docker >/dev/null 2>&1 || die "缺少 docker"
 
-case "$(uname -m)" in
-  arm64 | aarch64) RUST_TARGET="aarch64-unknown-linux-gnu"; DOCKER_ARCH="arm64" ;;
-  x86_64) RUST_TARGET="x86_64-unknown-linux-gnu"; DOCKER_ARCH="amd64" ;;
-  *) die "不支持的宿主架构：$(uname -m)" ;;
-esac
-
-rustup target list --installed 2>/dev/null | grep -qx "${RUST_TARGET}" ||
-  die "未安装 Rust 目标：rustup target add ${RUST_TARGET}"
+if [[ "${SVC}" != "web" ]]; then
+  command -v zig >/dev/null 2>&1 || die "缺少 zig：brew install zig"
+  command -v cargo-zigbuild >/dev/null 2>&1 ||
+    die "缺少 cargo-zigbuild：cargo install cargo-zigbuild --locked"
+  case "$(uname -m)" in
+    arm64 | aarch64) RUST_TARGET="aarch64-unknown-linux-gnu"; DOCKER_ARCH="arm64" ;;
+    x86_64) RUST_TARGET="x86_64-unknown-linux-gnu"; DOCKER_ARCH="amd64" ;;
+    *) die "不支持的宿主架构：$(uname -m)" ;;
+  esac
+  rustup target list --installed 2>/dev/null | grep -qx "${RUST_TARGET}" ||
+    die "未安装 Rust 目标：rustup target add ${RUST_TARGET}"
+fi
 
 VERSION="$(tr -d '[:space:]' <"${SRC}/version.txt" 2>/dev/null || echo dev)"
 [[ -n "${TAG}" ]] || TAG="v${VERSION}-local"
@@ -117,22 +133,28 @@ REGISTRY="$(env_value "${REGISTRY_VAR}")"
 CURRENT_TAG="$(env_value "${TAG_VAR}")"
 IMAGE="${REGISTRY}/${IMAGE_NAME}:${TAG}"
 
-echo "== 交叉编译（${BIN} / ${RUST_TARGET} / ${PROFILE}）"
+echo "== 构建（${SVC}）"
 BUILD_ARGS=()
 [[ "${PROFILE}" == "release" ]] && BUILD_ARGS+=(--release)
-(cd "${SRC}" && cargo zigbuild --target "${RUST_TARGET}" \
-  ${CARGO_ARGS[@]+"${CARGO_ARGS[@]}"} ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"})
-note "ok"
-
-BIN_PATH="${SRC}/target/${RUST_TARGET}/${PROFILE}/${BIN}"
-[[ -f "${BIN_PATH}" ]] || die "没找到产物：${BIN_PATH}"
-file "${BIN_PATH}" | grep -q ELF || die "产物不是 ELF（交叉编译没生效？）：$(file -b "${BIN_PATH}")"
+if [[ "${SVC}" == "web" ]]; then
+  (cd "${SRC}" && npm run build >/dev/null)
+  note "ok（dist/）"
+else
+  (cd "${SRC}" && cargo zigbuild --target "${RUST_TARGET}" \
+    ${CARGO_ARGS[@]+"${CARGO_ARGS[@]}"} ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"})
+  BIN_PATH="${SRC}/target/${RUST_TARGET}/${PROFILE}/${BIN}"
+  [[ -f "${BIN_PATH}" ]] || die "没找到产物：${BIN_PATH}"
+  file "${BIN_PATH}" | grep -q ELF || die "产物不是 ELF（交叉编译没生效？）：$(file -b "${BIN_PATH}")"
+  note "ok"
+fi
 
 echo "== 打包镜像（${IMAGE}）"
 CTX="$(mktemp -d)"
 trap 'rm -rf "${CTX}"' EXIT
-mkdir -p "${CTX}/${DOCKER_ARCH}"
-cp "${BIN_PATH}" "${CTX}/${DOCKER_ARCH}/${BIN}"
+if [[ "${SVC}" != "web" ]]; then
+  mkdir -p "${CTX}/${DOCKER_ARCH}"
+  cp "${BIN_PATH}" "${CTX}/${DOCKER_ARCH}/${BIN}"
+fi
 
 if [[ "${SVC}" == "atlas" ]]; then
   # 派生而不是重建：base 是**已发布镜像**，基底 / uid / entrypoint / 另一个二进制都原样保留。
@@ -153,6 +175,26 @@ if [[ "${SVC}" == "atlas" ]]; then
 # 本地开发镜像：从**已发布**镜像派生，只覆盖二进制（运行时形状与发布态一致）。
 FROM ${BASE_IMAGE}
 COPY ${DOCKER_ARCH}/${BIN} /usr/local/bin/${BIN}
+EOF
+  docker build -q -f "${CTX}/Dockerfile" -t "${IMAGE}" "${CTX}" >/dev/null
+elif [[ "${SVC}" == "web" ]]; then
+  # 静态前端：node 阶段在本机跑（容器里 `npm ci` 又要拉包又慢），
+  # 镜像从发布镜像派生，只换 `/usr/share/nginx/html`（nginx.conf / 健康检查原样保留）。
+  PUBLISHED_TAG="$(awk -v key="${TAG_VAR}" '
+    index($0, "- name: " key) { want = 1; next }
+    want && $1 == "value:" { print $2; exit }
+  ' "${STACK}/sys/setting/vars.yml" 2>/dev/null | tr -d '\"')"
+  case "${PUBLISHED_TAG}" in
+    "" | *-local) die "找不到已发布的 ${IMAGE_NAME} tag：检查 ${STACK}/sys/setting/vars.yml 的 ${TAG_VAR}" ;;
+  esac
+  BASE_IMAGE="${REGISTRY}/${IMAGE_NAME}:${PUBLISHED_TAG}"
+  docker image inspect "${BASE_IMAGE}" >/dev/null 2>&1 ||
+    die "本地没有 ${BASE_IMAGE}：先 docker pull 它（派生镜像要求 base 在本地）"
+  cp -R "${SRC}/dist" "${CTX}/dist"
+  cat >"${CTX}/Dockerfile" <<EOF
+# 本地开发镜像：从**已发布**镜像派生，只换静态文件（nginx 配置 / 版本目录结构保持一致）。
+FROM ${BASE_IMAGE}
+COPY dist/ /usr/share/nginx/html/
 EOF
   docker build -q -f "${CTX}/Dockerfile" -t "${IMAGE}" "${CTX}" >/dev/null
 else

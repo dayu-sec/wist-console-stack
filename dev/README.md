@@ -31,6 +31,7 @@ rustup target add aarch64-unknown-linux-gnu     # Intel 机器换成 x86_64-unkn
 ```sh
 ./dev/dev-image.sh --api   ../../wist/wist-field-api     # field-api
 ./dev/dev-image.sh --atlas ../../wist-atlas             # atlas（从发布镜像派生，只换二进制）
+./dev/dev-image.sh --web   ../../wist-field-web         # web（本地 npm build 后从发布镜像派生）
 ```
 
 它做四件事：`cargo zigbuild` → 把 ELF 放进临时 build context → 打包（基底 / uid / ENTRYPOINT
@@ -39,6 +40,8 @@ rustup target add aarch64-unknown-linux-gnu     # Intel 机器换成 x86_64-unkn
 - `field-api` 用仓库自带的 `docker/Dockerfile`；
 - `atlas` 的仓库 Dockerfile 会在容器里 `cargo build`（20+ 分钟），所以本地改成
   `FROM <已发布镜像> + COPY 二进制` —— 运行时形状完全不变，也不用自己选基底；
+- `web` 同理：`npm run build` 在宿主机跑（容器里 `npm ci` 又要拉包又慢），镜像从发布镜像
+  派生、只换 `/usr/share/nginx/html`，`nginx.conf` 与健康检查原样保留；
 - 镜像名形如 `${FIELD_REGISTRY}/wist-field-api:vX.Y.Z-local`，不在任何 registry 里；
 - **不要跑 `gops sys localize`**：它按 `values/` 重算 `.env`，会把本地 tag 覆盖回发布 tag；
 - 回滚：脚本结束会打印备份路径，`cp` 回去再重建那个服务。
