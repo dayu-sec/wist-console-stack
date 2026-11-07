@@ -135,13 +135,22 @@ mkdir -p "${CTX}/${DOCKER_ARCH}"
 cp "${BIN_PATH}" "${CTX}/${DOCKER_ARCH}/${BIN}"
 
 if [[ "${SVC}" == "atlas" ]]; then
-  # 派生而不是重建：base 是发布镜像，基底 / uid / entrypoint / 另一个二进制都原样保留。
-  [[ -n "${CURRENT_TAG}" ]] || die "不知道 atlas 的当前 tag（.env 里缺 ${TAG_VAR}）"
-  BASE_IMAGE="${REGISTRY}/${IMAGE_NAME}:${CURRENT_TAG}"
+  # 派生而不是重建：base 是**已发布镜像**，基底 / uid / entrypoint / 另一个二进制都原样保留。
+  #
+  # 必须用发布 tag 当 base，不能用 `.env` 里当前生效的 tag —— 它可能已经是上一份 `-local`，
+  # 那样每改一次代码就在上一份镜像上再叠一层（实测 274MB → 524MB）。
+  PUBLISHED_TAG="$(awk -v key="${TAG_VAR}" '
+    index($0, "- name: " key) { want = 1; next }
+    want && $1 == "value:" { print $2; exit }
+  ' "${STACK}/sys/setting/vars.yml" 2>/dev/null | tr -d '\"')"
+  case "${PUBLISHED_TAG}" in
+    "" | *-local) die "找不到已发布的 ${IMAGE_NAME} tag：检查 ${STACK}/sys/setting/vars.yml 的 ${TAG_VAR}" ;;
+  esac
+  BASE_IMAGE="${REGISTRY}/${IMAGE_NAME}:${PUBLISHED_TAG}"
   docker image inspect "${BASE_IMAGE}" >/dev/null 2>&1 ||
     die "本地没有 ${BASE_IMAGE}：先 docker pull 它（派生镜像要求 base 在本地）"
   cat >"${CTX}/Dockerfile" <<EOF
-# 本地开发镜像：从发布镜像派生，只覆盖二进制（运行时形状与发布态一致）。
+# 本地开发镜像：从**已发布**镜像派生，只覆盖二进制（运行时形状与发布态一致）。
 FROM ${BASE_IMAGE}
 COPY ${DOCKER_ARCH}/${BIN} /usr/local/bin/${BIN}
 EOF
