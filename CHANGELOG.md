@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 未发布
+
+- **atlas 读接口要令牌**：新增栈变量 `ATLAS_API_TOKEN`（产品默认是**空串** —— atlas 拿到空串
+  会拒绝启动，读接口不允许“谁都能读”）。现场在 `values/<系统>/sys_value.yml` 给一个随机值；
+  compose 同时以 `WIST_ATLAS_TOKEN` 传给 atlas、以 `SEC_ATLAS_API_TOKEN` 传给 field-api
+  （对应的 `[atlas] auth_token`）。
+- **只保护读接口**：`/healthz`、`/internal/atlas`（数据面写入，已只绑环回）、
+  `/api/openapi.json`、`/api/docs` 仍然不要令牌。
+- **已有站点要注意**：现场 `configs/` 是 `init-stack.sh` 从 `sys/configs/` 副本出来的
+  （gitignore 的现场态）。升级后要把 `[atlas] auth_token = "${SEC_ATLAS_API_TOKEN}"` 同步进
+  现场的 `configs/field-api/field-api.toml`，否则 BFF 手里没有令牌，atlas 会回 401。
+
 ## 0.2.2 · 2026-11-07
 
 - 跟版 `field-api v0.6.4-alpha` + `field-web v0.2.4-alpha`。

@@ -134,5 +134,11 @@ system:
   - name: ATLAS_PG_PASSWORD
     value: atlas-dev-only
 
+  # 资产拓扑读接口的令牌（atlas 的 `WIST_ATLAS_TOKEN`，BFF 用它去读）。
+  # **故意没有产品默认值**：空串 = atlas 启动失败（读接口不允许“谁都能读”）。
+  # 现场必须覆盖：`values/<系统>/sys_value.yml` 写一个随机串（可写 `${SEC_ATLAS_API_TOKEN}`）。
+  - name: ATLAS_API_TOKEN
+    value: ""
+
   - name: TZ
     value: Asia/Shanghai

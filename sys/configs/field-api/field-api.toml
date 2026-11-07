@@ -42,6 +42,9 @@ timeout_secs = 10
 # 页面本体由 atlas-web 嵌在 `/atlas/`。
 [atlas]
 base_url = "http://atlas:8080"
+# 读接口令牌：atlas 从 0.3.4 起要求 `Authorization: Bearer`。值来自栈变量
+# `ATLAS_API_TOKEN`（compose 以 `SEC_ATLAS_API_TOKEN` 传进来）。空 = 对面没开鉴权。
+auth_token = "${SEC_ATLAS_API_TOKEN}"
 sink_url = "http://127.0.0.1:18801"
 
 # 运行指标：VictoriaMetrics 的查询入口（栈内）。

@@ -104,6 +104,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://${ATLAS_PG_USER}:${ATLAS_PG_PASSWORD}@atlas-postgres:5432/${ATLAS_PG_DB}
+      # 读接口令牌：没有它 atlas 直接启动失败（`/healthz` 与写入入口不需要）。
+      WIST_ATLAS_TOKEN: ${ATLAS_API_TOKEN}
       # 写探针：往保留租户写一份最小 DSNAP，验「转换 → 落库 → 物化」。
       # 关掉就只是没有 probe 块，`/healthz` 仍返回 `{"status":"ok"}`。
       WIST_ATLAS_PROBE: ${ATLAS_PROBE}
@@ -176,6 +178,9 @@ services:
       # 收数地址里的端口也是模板里的 `${CREDENTIALS_HOST_PORT}` —— 不传进来就展不开，
       # 启动期会拒（`unresolved environment variable`）。端口只有一个来源：ports 映射那条。
       CREDENTIALS_HOST_PORT: ${CREDENTIALS_HOST_PORT}
+      # atlas 读接口的令牌：`field-api.toml` 的 `[atlas] auth_token = "${SEC_ATLAS_API_TOKEN}"`
+      # 从这里展开（SEC_ 前缀只表示“这是秘密”，值仍来自同一个栈变量）。
+      SEC_ATLAS_API_TOKEN: ${ATLAS_API_TOKEN}
       TZ: ${TZ}
     ports:
       # 凭据收数监听（mTLS）：`wist-cred` 推摘要过来。没有它就只能用已登记的旧凭据。
