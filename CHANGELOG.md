@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.2.1 · 2026-11-07
+
+- 跟版 `field-api v0.6.3-alpha` + `field-web v0.2.3-alpha`。
+- **「运行指标」页补上主机侧**：主机名 / IP / OS / 架构、负载（1m/5m/15m）、内存使用率、
+  系统盘使用率与容量、最紧张的挂载点、运行时长、进程数；趋势从 4 张变 8 张（主机四条在前）。
+- 接口只做加法：`/api/metrics` 的每个 agent 多一个 `host` 块，原有字段与语义不变。
+
+
 ## 0.2.0 · 2026-11-06
 
 - **改名：`wist-console-stack` → `wist-field-stack`**：仓名、compose 项目名、容器名
