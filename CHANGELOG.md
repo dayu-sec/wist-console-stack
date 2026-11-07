@@ -8,6 +8,9 @@
   （对应的 `[atlas] auth_token`）。
 - **只保护读接口**：`/healthz`、`/internal/atlas`（数据面写入，已只绑环回）、
   `/api/openapi.json`、`/api/docs` 仍然不要令牌。
+- **移除 `atlas-web` 服务**：画布自 `wist-atlas-graph@0.4` 起是 field-web 的一个 React 组件，
+  不再有独立容器，也不再需要 `ATLAS_WEB_IMAGE_TAG` 与 nginx 的 `location /atlas/`、
+  `location /atlas/api/`（数据走 BFF 的 `/api/atlas/*`）。栈从 7 个业务容器降到 6 个。
 - **已有站点要注意**：现场 `configs/` 是 `init-stack.sh` 从 `sys/configs/` 副本出来的
   （gitignore 的现场态）。升级后要把 `[atlas] auth_token = "${SEC_ATLAS_API_TOKEN}"` 同步进
   现场的 `configs/field-api/field-api.toml`，否则 BFF 手里没有令牌，atlas 会回 401。

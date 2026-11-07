@@ -1,13 +1,15 @@
 # wist-field-stack — 计算区「数据场 · 现场视图」（证据 / 资产拓扑 / 运行指标 / 设备状态）
 #
 # 角色分工（浏览器只接触 web）：
-#   web         field-web：静态托管 + 同源反代（/api → field-api，/atlas/ → atlas-web）
-#   field-api   只读 API（BFF）：到证据服务的身份、健康聚合、预签名转发、指标查询
+#   web         field-web：静态托管 + 同源反代（/api → field-api）
+#   field-api   只读 API（BFF）：到证据服务的身份、健康聚合、预签名转发、指标查询、资产拓扑代理
 #   evidence    wist-evidence：索引 + 对象存储（正文只在计算区与 COS 之间流动）
-#   atlas       wist-atlas：资产与拓扑 API
-#   atlas-web   wist-atlas-web：拓扑画布（挂在 /atlas/，不单独对外）
+#   atlas       wist-atlas：资产与拓扑 API（读接口要 Bearer 令牌）
 #   metrics     VictoriaMetrics：数据面 remote-write 进来的运行指标
 #   两个 PG     证据与资产生命周期不同，刻意分开
+#
+# 拓扑画布不是独立容器：它已组件化进 field-web（`@dayu-sec/wist-atlas-graph`），
+# 数据走 BFF 的 `/api/atlas/*`。没有 `atlas-web` 服务，也没有 `/atlas/` 反代。
 #
 # 端口（宿主:容器；宿主端口与 BIND_IP 见 sys/setting/vars.yml）：
 #   web              ${WEB_BIND_IP}:${WEB_HOST_PORT}:80      唯一浏览器入口
@@ -19,7 +21,7 @@
 #                    数据面 remote write / 运维查指标
 #   evidence-pg      ${PG_BIND_IP}:${EVIDENCE_PG_HOST_PORT}:5432
 #   atlas-pg         ${PG_BIND_IP}:${ATLAS_PG_HOST_PORT}:5432
-#   evidence（读）/ field-api / atlas-web：只在 compose 网络内，不绑宿主端口
+#   evidence（读）/ field-api：只在 compose 网络内，不绑宿主端口
 #                    证据读端口是 `${EVIDENCE_READ_PORT}`（与 evidence 配置 / field-api 同一来源）
 name: wist-field-stack
 
@@ -141,21 +143,6 @@ services:
       retries: 3
       start_period: 30s
 
-  atlas-web:
-    container_name: wist-field-stack-atlas-web
-    image: ${ATLAS_REGISTRY}/wist-atlas-web:${ATLAS_WEB_IMAGE_TAG}
-    restart: unless-stopped
-    depends_on:
-      atlas:
-        condition: service_healthy
-    # 不绑宿主端口：只由 web 的 `location /atlas/` 反代进来。
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
-      start_period: 5s
-
   field-api:
     container_name: wist-field-stack-field-api
     image: ${FIELD_REGISTRY}/wist-field-api:${FIELD_API_IMAGE_TAG}
@@ -213,8 +200,6 @@ services:
     depends_on:
       field-api:
         condition: service_healthy
-      atlas-web:
-        condition: service_started
     ports:
       # 443：唯一浏览器入口（TLS 在这里终结 —— 访问令牌是 bearer，不能走明文）。
       - "${WEB_BIND_IP}:${WEB_HOST_PORT}:443"

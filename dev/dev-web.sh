@@ -15,7 +15,7 @@
 # 三点必须在心里：
 #   1. 站点入口是**自签证书**，代理必须关掉校验 —— vite.config.ts 按 target 前缀处理；
 #   2. 令牌只在页面**没带** Authorization 时补，所以令牌输入框 / 401 这些路径在 dev 里仍然是真的；
-#   3. `/atlas` 也指向站点入口（生产就是 nginx 同源反代），避免两套 URL 形状。
+#   3. 资产拓扑不再有 `/atlas/`：画布是组件，数据也走 `/api/atlas/*`（同一条代理）。
 set -euo pipefail
 
 die() {
@@ -68,7 +68,6 @@ if [[ -z "${TOKEN}" && -n "${CRED_SITE}" ]]; then
 fi
 
 note "后端：${TARGET}"
-note "atlas：${TARGET}/atlas/"
 note "端口：http://localhost:${PORT}"
 if [[ -n "${TOKEN}" ]]; then
   note "令牌：已注入（页面不带 Authorization 时才生效；不打印）"
@@ -78,7 +77,6 @@ fi
 
 cd "${WEB}"
 VITE_CONSOLE_API_TARGET="${TARGET}" \
-  VITE_ATLAS_DEV_URL="${TARGET}" \
   VITE_CONSOLE_DEV_TOKEN="${TOKEN}" \
   VITE_CONSOLE_DEV_PORT="${PORT}" \
   exec ./node_modules/.bin/vite

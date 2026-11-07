@@ -37,9 +37,9 @@ scopes = ["evidence:read"]
 max_sensitivity = "paths"
 timeout_secs = 10
 
-# 资产拓扑：`base_url` 用于 `/api/health` 探活（读 `/healthz`，里面带写探针结果）；
+# 资产拓扑：`base_url` 用于 `/api/health` 探活与 `/api/atlas/*` 代理（读 `/healthz` 与 `/api/*`）；
 # `sink_url` 是**数据面视角**的写端点，只用于「接入」页展示 / copy。
-# 页面本体由 atlas-web 嵌在 `/atlas/`。
+# 画布已是 field-web 的一个组件，不再有 atlas-web 容器。
 [atlas]
 base_url = "http://atlas:8080"
 # 读接口令牌：atlas 从 0.3.4 起要求 `Authorization: Bearer`。值来自栈变量

@@ -21,8 +21,6 @@ system:
     value: ghcr.io/dayu-sec
   - name: ATLAS_IMAGE_TAG
     value: v0.3.3
-  - name: ATLAS_WEB_IMAGE_TAG
-    value: v0.1.3-alpha
 
   - name: PG_REGISTRY
     value: docker.io/library

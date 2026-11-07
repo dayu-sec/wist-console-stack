@@ -75,8 +75,10 @@ curl -sk https://localhost:8088/api/metrics -H "authorization: Bearer ${TOKEN}" 
   python3 -c 'import json,sys; d=json.load(sys.stdin); print(list(d), len(d["business"]), d["unassigned_agents"])'
 curl -s http://localhost:5175/api/metrics -o /dev/null -w '%{http_code}\n'       # HMR 代理是否注入令牌
 
-# atlas 接口文档（直连宿主端口；atlas 读接口本身不鉴权）
+# atlas 接口文档（直连宿主端口；spec / 阅读页不要令牌，数据接口要）
+ATLAS_TOKEN=$(grep '^ATLAS_API_TOKEN=' .env | cut -d= -f2)
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:18801/api/openapi.json
+curl -s -o /dev/null -w '%{http_code}\n' -H "authorization: Bearer ${ATLAS_TOKEN}" http://127.0.0.1:18801/api/hosts
 open http://127.0.0.1:18801/api/docs
 ```
 

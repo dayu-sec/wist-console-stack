@@ -7,17 +7,16 @@
 - [`wist-evidence`](https://github.com/dayu-sec/wist-evidence)（证据服务）
 - [`wist-field-api`](https://github.com/dayu-sec/wist-field-api)（BFF）
 - [`wist-field-web`](https://github.com/dayu-sec/wist-field-web)（前端）
-- [`wist-atlas`](https://github.com/dayu-sec/wist-atlas) / [`wist-atlas-web`](https://github.com/dayu-sec/wist-atlas-web)（资产与拓扑）
+- [`wist-atlas`](https://github.com/dayu-sec/wist-atlas)（资产与拓扑 API；画布已组件化进 `wist-field-web`）
 
 ## 组件
 
 | 服务 | 作用 | 端口（宿主:容器） | 镜像 |
 |---|---|---|---|
-| `web` | 唯一浏览器入口：静态托管 + `/api`、`/atlas/` 反代 | `${WEB_BIND_IP}:${WEB_HOST_PORT}:80` | `wist-field-web` |
-| `field-api` | 只读 API（BFF）：身份 / 健康聚合 / 预签名转发 / 指标查询 | 仅 compose 网络 `:8080` | `wist-field-api` |
+| `web` | 唯一浏览器入口：静态托管 + `/api` 反代 | `${WEB_BIND_IP}:${WEB_HOST_PORT}:80` | `wist-field-web` |
+| `field-api` | 只读 API（BFF）：身份 / 健康聚合 / 预签名转发 / 指标查询 / 拓扑代理 | 仅 compose 网络 `:8080` | `wist-field-api` |
 | `evidence` | 证据索引 + 对象存储 | 写 `${EVIDENCE_SINK_BIND_IP}:${EVIDENCE_SINK_HOST_PORT}:8080`；读仅网络内 `:${EVIDENCE_READ_PORT}` | `wist-evidence` |
-| `atlas` | 资产与拓扑 API | 写 `${ATLAS_INGEST_BIND_IP}:${ATLAS_INGEST_HOST_PORT}:8080`；读仅网络内 `:8080` | `wist-atlas` |
-| `atlas-web` | 拓扑画布（挂 `/atlas/`） | 仅网络内 `:80` | `wist-atlas-web` |
+| `atlas` | 资产与拓扑 API（读接口要 Bearer 令牌） | 写 `${ATLAS_INGEST_BIND_IP}:${ATLAS_INGEST_HOST_PORT}:8080`；读仅网络内 `:8080` | `wist-atlas` |
 | `metrics` | 运行指标（VictoriaMetrics） | `${VM_BIND_IP}:${VM_HOST_PORT}:8428` | `victoriametrics/victoria-metrics` |
 | `evidence-postgres` | 证据索引库 | `${PG_BIND_IP}:${EVIDENCE_PG_HOST_PORT}:5432` | `postgres` |
 | `atlas-postgres` | 资产库 | `${PG_BIND_IP}:${ATLAS_PG_HOST_PORT}:5432` | `postgres` |
@@ -184,7 +183,7 @@ curl -k -H 'x-field-operator: zhangsan' https://127.0.0.1:8088/api/health
 | `#/overview` | 四域就绪度 + 接口可用性摘要 |
 | `#/evidence` | 证据列表（按主机、类型筛） |
 | `#/evidence/{artifact_id}` | 元数据 + 「打开正文（60s）」 |
-| `#/topology` | 资产拓扑（同源嵌入 atlas-web） |
+| `#/topology` | 资产拓扑（画布是 field-web 的组件，数据走 BFF 的 `/api/atlas/*`） |
 | `#/health` | **接口可用性**：逐条探活 + 延迟 + 本次会话可用率，可手动立即检查 |
 | `#/pipeline`、`#/devices` | 占位（写明缺什么） |
 
@@ -266,9 +265,10 @@ retention_hours = 24     # 能活多久；实际每小时扫一次
 
 ## 与其它栈的关系
 
-- `atlas` / `atlas-web` 也可以继续由 `wist-atlas-stack` 单独跑；本栈内置一份是为了**一个入口**。
+- `atlas` 也可以继续由 `wist-atlas-stack` 单独跑；本栈内置一份是为了**一个入口**。
   两者不要共用同一个 PG。
-- `atlas-web` 必须以相对资源路径构建（`wist-atlas-web v0.1.1+`），否则 `/atlas/` 下会白屏。
+- **没有 `atlas-web` 容器**：画布自 `wist-atlas-graph@0.4` 起是 field-web 的一个 React 组件
+  （同一棵 React 树、同一套主题/键盘/搜索），数据经 BFF 的 `/api/atlas/*` 读 atlas。
 - 本栈**不包含** `wist-center`：center 在接入区，证据/资产在计算区，两边不混。
 
 ## 本地构建镜像
