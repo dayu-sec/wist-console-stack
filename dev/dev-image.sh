@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# 把 wist-field-api 源码交叉编译成 Linux 二进制，打成「本地开发镜像」，并挂到本栈上。
+# 把组件源码交叉编译成 Linux 二进制，打成「本地开发镜像」，并挂到本栈上。
 #
-#   ./dev/dev-image.sh --api <wist-field-api 仓> [选项]
+#   ./dev/dev-image.sh --svc api   --api   <wist-field-api 仓>    [选项]
+#   ./dev/dev-image.sh --svc atlas --atlas <wist-atlas 仓>        [选项]
 #
 # 选项：
-#   --api <dir>       wist-field-api 源码仓（必需）
-#   --stack <dir>     站点栈目录（默认：本仓根目录）；给了就顺手切 tag 并只重建 field-api
-#   --tag <tag>       镜像 tag（默认 v<version.txt>-local）
-#   --release         用 release 档编译（默认 debug：更快，测试够用）
-#   --no-recreate     只构建镜像，不动容器
+#   --svc <api|atlas>  要构建哪个（默认 api）
+#   --api <dir>        wist-field-api 源码仓（--svc api）
+#   --atlas <dir>      wist-atlas 源码仓（--svc atlas）
+#   --stack <dir>      站点栈目录（默认：本仓根目录）
+#   --tag <tag>        镜像 tag（默认 v<version.txt>-local）
+#   --release          用 release 档编译（默认 debug：更快，测试够用）
+#   --no-recreate      只构建镜像，不动容器
 #   -h | --help
 #
 # 为什么这么绕：macOS 二进制跑不进 Linux 容器（Mach-O ≠ ELF），而容器里全量 cargo build
@@ -16,6 +19,11 @@
 #
 # 为什么 tag 一定是 vX.Y.Z-local：这个镜像不在任何 registry 里。带 -local 后缀，
 # 既不会让 docker compose pull 误以为它存在，也不会被误当成某次发布产物。
+#
+# 两个组件的打包方式不同（都只换二进制，运行时形状保持发布态）：
+#   field-api  用仓库自带的 docker/Dockerfile（base = ubuntu:24.04）；
+#   atlas      仓库 Dockerfile 会在容器里编译（慢），本地改成「从已发布镜像派生」：
+#              FROM <ATLAS_REGISTRY>/wist-atlas:<当前 tag> + 只覆盖 /usr/local/bin/wist-atlas。
 set -euo pipefail
 
 die() {
@@ -24,7 +32,9 @@ die() {
 }
 note() { echo "  $*"; }
 
-API=""
+SVC="api"
+FIELD_API_SRC=""
+ATLAS_SRC=""
 STACK=""
 TAG=""
 PROFILE="debug"
@@ -32,22 +42,50 @@ RECREATE=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --api) API="${2:-}"; shift 2 ;;
+    --svc) SVC="${2:-}"; shift 2 ;;
+    --api) FIELD_API_SRC="${2:-}"; SVC="api"; shift 2 ;;
+    --atlas) ATLAS_SRC="${2:-}"; SVC="atlas"; shift 2 ;;
     --stack) STACK="${2:-}"; shift 2 ;;
     --tag) TAG="${2:-}"; shift 2 ;;
     --release) PROFILE="release"; shift ;;
     --no-recreate) RECREATE=0; shift ;;
-    -h | --help) sed -n '2,20p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,25p' "$0"; exit 0 ;;
     *) die "未知参数：$1（--help 看用法）" ;;
   esac
 done
 
-[[ -n "${API}" ]] || die "缺少 --api"
-[[ -f "${API}/Cargo.toml" ]] || die "--api 不是 wist-field-api 仓：${API}"
-[[ -f "${API}/docker/Dockerfile" ]] || die "缺少 ${API}/docker/Dockerfile（运行时形状的唯一来源）"
+case "${SVC}" in
+  api)
+    SRC="${FIELD_API_SRC}"
+    [[ -n "${SRC}" ]] || die "缺少 --api <wist-field-api 仓>"
+    [[ -f "${SRC}/Cargo.toml" ]] || die "--api 不是 wist-field-api 仓：${SRC}"
+    CARGO_ARGS=()
+    BIN="wist-field-api"
+    IMAGE_NAME="wist-field-api"
+    REGISTRY_VAR="FIELD_REGISTRY"
+    TAG_VAR="FIELD_API_IMAGE_TAG"
+    COMPOSE_SERVICE="field-api"
+    CONTAINER="wist-field-stack-field-api"
+    ;;
+  atlas)
+    SRC="${ATLAS_SRC}"
+    [[ -n "${SRC}" ]] || die "缺少 --atlas <wist-atlas 仓>"
+    [[ -f "${SRC}/Cargo.toml" ]] || die "--atlas 不是 wist-atlas 仓：${SRC}"
+    CARGO_ARGS=(-p atlas-app)
+    BIN="wist-atlas"
+    IMAGE_NAME="wist-atlas"
+    REGISTRY_VAR="ATLAS_REGISTRY"
+    TAG_VAR="ATLAS_IMAGE_TAG"
+    COMPOSE_SERVICE="atlas"
+    CONTAINER="wist-field-stack-atlas"
+    ;;
+  *)
+    die "--svc 只能是 api|atlas，收到 ${SVC}"
+    ;;
+esac
 
 # 后面要 cd 进栈目录，先把两个路径都换成绝对路径（否则相对路径会拼成 xx/xx/…）。
-API="$(cd "${API}" && pwd)"
+SRC="$(cd "${SRC}" && pwd)"
 if [[ -z "${STACK}" ]]; then
   STACK="$(cd "$(dirname "$0")/.." && pwd)"
 fi
@@ -70,33 +108,50 @@ esac
 rustup target list --installed 2>/dev/null | grep -qx "${RUST_TARGET}" ||
   die "未安装 Rust 目标：rustup target add ${RUST_TARGET}"
 
-VERSION="$(tr -d '[:space:]' <"${API}/version.txt" 2>/dev/null || echo dev)"
+VERSION="$(tr -d '[:space:]' <"${SRC}/version.txt" 2>/dev/null || echo dev)"
 [[ -n "${TAG}" ]] || TAG="v${VERSION}-local"
 
-# 镜像前缀跟着站点栈走（FIELD_REGISTRY），否则用产品默认。
-FIELD_REGISTRY="ghcr.io/dayu-sec"
-from_env="$(sed -n 's/^FIELD_REGISTRY=//p' "${STACK}/.env" | head -1 | tr -d '"')"
-[[ -n "${from_env}" ]] && FIELD_REGISTRY="${from_env}"
-IMAGE="${FIELD_REGISTRY}/wist-field-api:${TAG}"
+env_value() { sed -n "s/^$1=//p" "${STACK}/.env" | head -1 | tr -d '"'; }
+REGISTRY="$(env_value "${REGISTRY_VAR}")"
+[[ -n "${REGISTRY}" ]] || REGISTRY="ghcr.io/dayu-sec"
+CURRENT_TAG="$(env_value "${TAG_VAR}")"
+IMAGE="${REGISTRY}/${IMAGE_NAME}:${TAG}"
 
-echo "== 交叉编译（${RUST_TARGET} / ${PROFILE}）"
+echo "== 交叉编译（${BIN} / ${RUST_TARGET} / ${PROFILE}）"
 BUILD_ARGS=()
 [[ "${PROFILE}" == "release" ]] && BUILD_ARGS+=(--release)
-(cd "${API}" && cargo zigbuild --target "${RUST_TARGET}" ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"})
+(cd "${SRC}" && cargo zigbuild --target "${RUST_TARGET}" \
+  ${CARGO_ARGS[@]+"${CARGO_ARGS[@]}"} ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"})
 note "ok"
 
-BIN="${API}/target/${RUST_TARGET}/${PROFILE}/wist-field-api"
-[[ -f "${BIN}" ]] || die "没找到产物：${BIN}"
-file "${BIN}" | grep -q ELF || die "产物不是 ELF（交叉编译没生效？）：$(file -b "${BIN}")"
+BIN_PATH="${SRC}/target/${RUST_TARGET}/${PROFILE}/${BIN}"
+[[ -f "${BIN_PATH}" ]] || die "没找到产物：${BIN_PATH}"
+file "${BIN_PATH}" | grep -q ELF || die "产物不是 ELF（交叉编译没生效？）：$(file -b "${BIN_PATH}")"
 
 echo "== 打包镜像（${IMAGE}）"
 CTX="$(mktemp -d)"
 trap 'rm -rf "${CTX}"' EXIT
 mkdir -p "${CTX}/${DOCKER_ARCH}"
-cp "${BIN}" "${CTX}/${DOCKER_ARCH}/wist-field-api"
-docker build -q -f "${API}/docker/Dockerfile" \
-  --build-arg TARGETARCH="${DOCKER_ARCH}" \
-  -t "${IMAGE}" "${CTX}" >/dev/null
+cp "${BIN_PATH}" "${CTX}/${DOCKER_ARCH}/${BIN}"
+
+if [[ "${SVC}" == "atlas" ]]; then
+  # 派生而不是重建：base 是发布镜像，基底 / uid / entrypoint / 另一个二进制都原样保留。
+  [[ -n "${CURRENT_TAG}" ]] || die "不知道 atlas 的当前 tag（.env 里缺 ${TAG_VAR}）"
+  BASE_IMAGE="${REGISTRY}/${IMAGE_NAME}:${CURRENT_TAG}"
+  docker image inspect "${BASE_IMAGE}" >/dev/null 2>&1 ||
+    die "本地没有 ${BASE_IMAGE}：先 docker pull 它（派生镜像要求 base 在本地）"
+  cat >"${CTX}/Dockerfile" <<EOF
+# 本地开发镜像：从发布镜像派生，只覆盖二进制（运行时形状与发布态一致）。
+FROM ${BASE_IMAGE}
+COPY ${DOCKER_ARCH}/${BIN} /usr/local/bin/${BIN}
+EOF
+  docker build -q -f "${CTX}/Dockerfile" -t "${IMAGE}" "${CTX}" >/dev/null
+else
+  [[ -f "${SRC}/docker/Dockerfile" ]] || die "缺少 ${SRC}/docker/Dockerfile（运行时形状的唯一来源）"
+  docker build -q -f "${SRC}/docker/Dockerfile" \
+    --build-arg TARGETARCH="${DOCKER_ARCH}" \
+    -t "${IMAGE}" "${CTX}" >/dev/null
+fi
 note "ok（$(docker image inspect "${IMAGE}" --format '{{.Size}}' 2>/dev/null | awk '{printf "%.0fMB", $1/1024/1024}')）"
 
 if [[ "${RECREATE}" != "1" ]]; then
@@ -105,31 +160,30 @@ if [[ "${RECREATE}" != "1" ]]; then
 fi
 
 COMPOSE=(-f "${STACK}/sys/docker-compose.yml" --project-directory "${STACK}" --env-file "${STACK}/.env")
-echo "== 切站点栈的 FIELD_API_IMAGE_TAG → ${TAG}"
+echo "== 切站点栈的 ${TAG_VAR} → ${TAG}"
 BACKUP="/tmp/$(basename "${STACK}").env.bak.$(date +%Y%m%d%H%M%S)"
 cp "${STACK}/.env" "${BACKUP}"
-awk -v tag="${TAG}" '
-  /^FIELD_API_IMAGE_TAG=/ { print "FIELD_API_IMAGE_TAG=" tag; next }
+awk -v key="${TAG_VAR}" -v tag="${TAG}" '
+  index($0, key "=") == 1 { print key "=" tag; next }
   { print }
 ' "${BACKUP}" >"${STACK}/.env"
 note "ok（原文件备份在 ${BACKUP}）"
 
-echo "== 只重建 field-api（不要跑 gops sys localize：它会按 values/ 覆盖 .env）"
-(cd "${STACK}" && docker compose "${COMPOSE[@]}" up -d --force-recreate field-api) >/dev/null
+echo "== 只重建 ${COMPOSE_SERVICE}（不要跑 gops sys localize：它会按 values/ 覆盖 .env）"
+(cd "${STACK}" && docker compose "${COMPOSE[@]}" up -d --force-recreate "${COMPOSE_SERVICE}") >/dev/null
 sleep 2
-(cd "${STACK}" && docker compose "${COMPOSE[@]}" ps field-api --format '{{.Image}} {{.Status}}') || true
+(cd "${STACK}" && docker compose "${COMPOSE[@]}" ps "${COMPOSE_SERVICE}" --format '{{.Image}} {{.Status}}') || true
 
 cat <<EOF
 
 完成。自检：
-  docker ps --filter name=field-stack-field-api --format '{{.Image}}\t{{.Status}}'
+  docker ps --filter name=${CONTAINER} --format '{{.Image}}\t{{.Status}}'
   ./dev/dev-token.sh --cred-site <cred 栈目录>
-  curl -sk https://<WEB_DOMAIN>:<WEB_HOST_PORT>/api/metrics -H "authorization: Bearer <令牌>" | head -c 200
 
 回滚：
   cp ${BACKUP} ${STACK}/.env
   cd ${STACK} && docker compose -f sys/docker-compose.yml --project-directory . --env-file .env \\
-    up -d --force-recreate field-api
+    up -d --force-recreate ${COMPOSE_SERVICE}
 
 改了源码之后：重跑本脚本即可（增量编译 5–15 秒）。
 EOF

@@ -29,16 +29,19 @@ rustup target add aarch64-unknown-linux-gnu     # Intel 机器换成 x86_64-unkn
 ## 后端：本地镜像
 
 ```sh
-./dev/dev-image.sh --api ../../wist/wist-field-api
+./dev/dev-image.sh --api   ../../wist/wist-field-api     # field-api
+./dev/dev-image.sh --atlas ../../wist-atlas             # atlas（从发布镜像派生，只换二进制）
 ```
 
-它做四件事：`cargo zigbuild` → 把 ELF 放进临时 build context → 用**仓里那份**
-`docker/Dockerfile` 打包（基底 / uid / ENTRYPOINT 与发布态一致，只换二进制）→
-备份 `.env`、把 `FIELD_API_IMAGE_TAG` 改成 `vX.Y.Z-local`、**只重建 `field-api`**。
+它做四件事：`cargo zigbuild` → 把 ELF 放进临时 build context → 打包（基底 / uid / ENTRYPOINT
+与发布态一致，只换二进制）→ 备份 `.env`、把镜像 tag 改成 `vX.Y.Z-local`、**只重建那一个容器**。
 
-- 镜像名：`${FIELD_REGISTRY}/wist-field-api:vX.Y.Z-local`，不在任何 registry 里；
+- `field-api` 用仓库自带的 `docker/Dockerfile`；
+- `atlas` 的仓库 Dockerfile 会在容器里 `cargo build`（20+ 分钟），所以本地改成
+  `FROM <已发布镜像> + COPY 二进制` —— 运行时形状完全不变，也不用自己选基底；
+- 镜像名形如 `${FIELD_REGISTRY}/wist-field-api:vX.Y.Z-local`，不在任何 registry 里；
 - **不要跑 `gops sys localize`**：它按 `values/` 重算 `.env`，会把本地 tag 覆盖回发布 tag；
-- 回滚：脚本结束会打印备份路径，`cp` 回去再重建 `field-api`。
+- 回滚：脚本结束会打印备份路径，`cp` 回去再重建那个服务。
 
 ## 前端：HMR
 
@@ -68,6 +71,10 @@ TOKEN=$(./dev/dev-token.sh --cred-site <cred 栈>)
 curl -sk https://localhost:8088/api/metrics -H "authorization: Bearer ${TOKEN}" |
   python3 -c 'import json,sys; d=json.load(sys.stdin); print(list(d), len(d["business"]), d["unassigned_agents"])'
 curl -s http://localhost:5175/api/metrics -o /dev/null -w '%{http_code}\n'       # HMR 代理是否注入令牌
+
+# atlas 接口文档（直连宿主端口；atlas 读接口本身不鉴权）
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:18801/api/openapi.json
+open http://127.0.0.1:18801/api/docs
 ```
 
 ## 坑
