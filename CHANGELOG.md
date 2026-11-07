@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.2.2 · 2026-11-07
+
+- 跟版 `field-api v0.6.4-alpha` + `field-web v0.2.4-alpha`。
+- **「运行指标」页改成四层表达**：`1 · 业务层` → `2 · 服务层` → `3 · 中间件层` → `4 · 计算资源层`。
+  业务层的主机归属来自 `sys/configs/field-api/field-api.toml` 的 `[[business.units]]`
+  （配置里给了注释模板，默认未启用）—— **不下沉到数据面**，改归属不用重启 wparse / agentd。
+- 中间件层当前是空态：`container_*` / `kafka_*` 有契约，等 agentd 开 provider。
+- 接口只做加法：`/api/metrics` 多 `business` / `unassigned_agents` 两个字段，原有字段与语义不变。
+
 ## 0.2.1 · 2026-11-07
 
 - 跟版 `field-api v0.6.3-alpha` + `field-web v0.2.3-alpha`。
